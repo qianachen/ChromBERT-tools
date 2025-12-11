@@ -13,25 +13,26 @@
 
 - **Region embeddings** – generate ChromBERT-based embeddings for genomic regions.  
   - Tool: `chrombert_embedding_regions`
-- **Gene embeddings** – generate embeddings for genes specified by gene symbols or IDs (using TSS windows).  
+- **Gene embeddings** – generate embeddings for genes specified by gene symbols or IDs.  
   - Tool: `chrombert_embedding_gene_tss`
 - **Regulator embeddings** – generate embeddings for transcription factors / regulators.  
   - Tool: `chrombert_embedding_regulators`
 - **Cistrome embeddings** – generate embeddings for cistromes.  
   - Tool: `chrombert_embedding_cistromes`
-- **TRN inference (bulk / context-level)** – infer transcriptional regulatory networks over user-specified regions.  
+- **TRN inference** – infer transcriptional regulatory networks over user-specified regions.  
   - Tool: `chrombert_inferring_trn`
 
-### 2. Cell- and condition-specific representations
+### 2. Cell-specific representations
 
-- **Cell-specific region embeddings** – adapt region embeddings to a given cell type or condition.  
+- **Cell-specific region embeddings** – generate region embeddings conditioned on user-provided cell-type–specific profiles.  
   - Tool: `chrombert_embedding_cell_regions`
-- **Cell-specific gene embeddings** – adapt gene (TSS-based) embeddings for specific cell types or conditions.  
+- **Cell-specific gene embeddings** – generate gene embeddings conditioned on user-provided cell-type–specific profiles.  
   - Tool: `chrombert_embedding_cell_gene_tss`
-- **Cell-specific regulator embeddings** – adapt regulator embeddings to a given cell type or condition.  
+- **Cell-specific regulator embeddings** – generate regulator embeddings conditioned on user-provided cell-type–specific profiles.  
   - Tool: `chrombert_embedding_cell_regulators`
-- **Cell-specific TRNs** – infer transcriptional regulatory networks conditioned on a specific cell type or perturbation.  
+- **Cell-specific TRNs** – infer transcriptional regulatory networks conditioned on user-provided cell-type–specific profiles.  
   - Tool: `chrombert_inferring_cell_trn`
+
 
 ### 3. Cistrome imputation
 
@@ -40,7 +41,7 @@
 
 ### 4. Dynamic analysis and driver regulator discovery
 
-- **Cell-state transitions** – rank putative driver regulators underlying specific transitions between cell types or conditions.  
+- **Cell-state transitions** – rank putative driver regulators underlying specific transitions between cell types.  
   - Tool: `chrombert_finding_driver_factors_in_cell_state_transition`
 - **Functional region contrasts** – identify regulators whose context-specific embeddings best discriminate between two sets of functional regions.  
   - Tool: `chrombert_finding_driver_factors_in_functional_regions`
