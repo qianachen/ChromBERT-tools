@@ -1,0 +1,231 @@
+import os
+import click
+from types import SimpleNamespace
+import os
+import subprocess as sp
+import numpy as np
+import pandas as pd
+import chrombert
+from chrombert import ChromBERTFTConfig, DatasetConfig
+import torch
+from tqdm import tqdm
+def resolve_paths(args):
+    """Resolve region BED and embedding paths based on cache dir / overrides."""
+    if args.genome == "hg38":
+        n_d='6k'
+    elif args.genome == "mm10":
+        n_d='5k'
+    else:
+        print(f"Genome {args.genome} not supported!")
+        raise ValueError(f"Genome {args.genome} not supported!")
+    # 1) ChromBERT region BED
+    if args.chrombert_region_file is not None:
+        # Allow both a directory or a direct file path
+        chrombert_region_file = args.chrombert_region_file
+    else:
+        chrombert_region_file = os.path.join(
+            args.chrombert_cache_dir, f"config/{args.genome}_{n_d}_{args.resolution}_region.bed"
+        )
+        
+    # 2) ChromBERT input hdf5 file
+    hdf5_file = os.path.join(args.chrombert_cache_dir, f"{args.genome}_{n_d}_{args.resolution}.hdf5")
+
+    # 3) ChromBERT region embedding .npy
+    if args.chrombert_region_emb_file is not None:
+        emb_npy_path = args.chrombert_region_emb_file
+    else:
+        emb_npy_path = os.path.join(
+            args.chrombert_cache_dir, f"anno/{args.genome}_{args.resolution}_region_emb.npy"
+        )
+
+    # 4) ChromBERT pretrain ckpt file
+    pretrain_ckpt = os.path.join(args.chrombert_cache_dir,"checkpoint", f"{args.genome}_{n_d}_{args.resolution}_pretrain.ckpt")
+    
+    # 5) ChromBERT matcix mask file:
+    mtx_mask = os.path.join(args.chrombert_cache_dir,"config", f"{args.genome}_{n_d}_mask_matrix.tsv")
+    
+
+    return {
+        "hdf5_file": hdf5_file,
+        "pretrain_ckpt": pretrain_ckpt,
+        "mtx_mask": mtx_mask,
+        "chrombert_region_file": chrombert_region_file,
+        "emb_npy_path": emb_npy_path
+        
+    }
+
+
+def check_files(file_dicts, args):
+    """Check that required ChromBERT files exist, and give helpful hints if not."""
+    chrombert_region_file = file_dicts["chrombert_region_file"]
+    if not os.path.exists(chrombert_region_file):
+        if args.chrombert_region_file is not None:
+            msg = (
+                f"ChromBERT region BED file not found: {chrombert_region_file}.\n"
+                "Please check the path you passed to --chrombert_region_file "
+                "or provide a correct BED file path."
+            )
+        else:
+            msg = (
+                f"ChromBERT region BED file not found: {chrombert_region_file}.\n"
+                "You can download all required files by running the command "
+                "`chrombert_prepare_env`, or download this BED file directly from:\n"
+                "  https://huggingface.co/TongjiZhanglab/chrombert/"
+                "tree/main/data/hg38_6k_1kb_region.bed"
+            )
+        print(msg)
+        raise FileNotFoundError(msg)
+    
+    emb_npy_path = file_dicts["emb_npy_path"]
+    if not os.path.exists(emb_npy_path):
+        msg = (
+            f"ChromBERT region embedding file not found: {emb_npy_path}, and not directly pick region embedding from cache dir. \n"
+            f"Load model ChromBERT to embed focus regions. \n"
+            f"Check whether downloaded chrombert env dataset")
+        print(msg)
+        hdf5_file = file_dicts['hdf5_file']
+        ckpt_file = file_dicts['pretrain_ckpt']
+        if not os.path.exists(hdf5_file) or not os.path.exists(ckpt_file):
+            msg = (
+                "You can download all required files by running the command "
+                "`chrombert_prepare_env`"
+            )
+            print(msg)
+        
+    
+def model_emb_func(args,files_dict,odir):
+    # init datamodule
+    data_config = DatasetConfig(
+        kind = "GeneralDataset",
+        supervised_file = f"{odir}/model_input.csv",
+        hdf5_file = files_dict["hdf5_file"],
+        batch_size = 4,
+        num_workers = 8,
+    )
+    dl = data_config.init_dataloader()
+    ds = data_config.init_dataset()
+
+    # init chrombert
+    model_config = ChromBERTFTConfig(
+        genome = args.genome,
+        dropout = 0,
+        task = "general",
+        pretrain_ckpt = files_dict["pretrain_ckpt"],
+        mtx_mask = files_dict["mtx_mask"],
+    )
+    model_emb = model_config.init_model().get_embedding_manager().cuda().bfloat16()
+    return ds, dl, model_emb
+    
+def run(args):
+
+    odir = args.odir
+    os.makedirs(odir, exist_ok=True)
+
+    focus_region_bed = args.region_bed
+    files_dict = resolve_paths(args)
+    check_files(files_dict, args)
+
+    chrombert_region_bed = files_dict['chrombert_region_file']
+    # ---------- overlapping focus regions ----------
+    cmd_overlap = f"""
+    cut -f 1-3 {focus_region_bed} \
+    | sort -k1,1 -k2,2n \
+    | bedtools intersect -F 0.5 -wa -wb -a {chrombert_region_bed} -b - \
+    | awk 'BEGIN{{OFS="\\t"}}{{print $5,$6,$7,$4}}' \
+    > {odir}/overlap_focus.bed
+    """
+    sp.run(cmd_overlap, shell=True, check=True, executable="/bin/bash")
+
+    overlap_bed = pd.read_csv(
+        f"{odir}/overlap_focus.bed",
+        sep="\t",
+        header=None,
+        names=["chrom", "start", "end", "build_region_index"],
+    )
+    overlap_idx = overlap_bed["build_region_index"].to_numpy()
+
+    # ---------- non-overlapping focus regions ----------
+    cmd_no = f"""
+    cut -f 1-3 {focus_region_bed} \
+    | sort -k1,1 -k2,2n \
+    | bedtools intersect -f 0.5 -v -a - -b {chrombert_region_bed} \
+    > {odir}/no_overlap_focus.bed
+    """
+    sp.run(cmd_no, shell=True, check=True, executable="/bin/bash")
+
+    # ---------- focus region embeddings ----------
+    emb_npy_path = files_dict["emb_npy_path"]
+    if os.path.exists(emb_npy_path):
+        all_emb = np.load(emb_npy_path)
+        overlap_emb = all_emb[overlap_idx]
+        np.save(f"{odir}/overlap_focus_emb.npy", overlap_emb)
+    else:
+        print(f"ChromBERT region embedding file not found: {emb_npy_path}, and not directly pick region embedding from cache dir.")
+        print("Load model ChromBERT to embed focus regions.")
+        overlap_bed.to_csv(f'{odir}/model_input.csv',index=False)
+        ds, dl, model_emb = model_emb_func(args,files_dict,odir)
+    
+        region_embs = []
+        with torch.no_grad():
+            for batch in tqdm(dl, total = len(dl)):
+                for k,v in batch.items():
+                    if isinstance(v, torch.Tensor):
+                        batch[k] = v.cuda()
+                model_emb(batch) # initialize the cache 
+                region_embs.append(model_emb.get_region_embedding().float().cpu().detach())
+        region_embs = torch.cat(region_embs,axis=0).numpy()
+        np.save(f"{odir}/overlap_focus_emb.npy", region_embs)
+        
+
+    # ---------- report ----------
+    total_focus = sum(1 for _ in open(focus_region_bed))
+    no_overlap_region_len = sum(1 for _ in open(f"{odir}/no_overlap_focus.bed"))
+
+    print("Finished!")
+    print(
+        f"Focus region summary - total: {total_focus}, "
+        f"overlapping with ChromBERT: {overlap_bed.shape[0]}, It is possible for a single focus region to overlap multiple ChromBERT regions,"
+        f"non-overlapping: {no_overlap_region_len}"
+    )
+    print("Overlapping focus regions BED file:", f"{odir}/overlap_focus.bed")
+    print("Non-overlapping focus regions BED file:", f"{odir}/no_overlap_focus.bed")
+    print("Overlapping focus region embeddings saved to:", f"{odir}/overlap_focus_emb.npy")
+
+
+@click.command(name="embed_region",
+               context_settings={"help_option_names": ["-h", "--help"]})
+@click.option("--region-bed", "region_bed",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              required=True, help="Region BED file.")
+@click.option("--odir", default="./output", show_default=True,
+              type=click.Path(file_okay=False), help="Output directory.")
+@click.option("--genome", default="hg38", show_default=True,
+              type=click.Choice(["hg38", "mm10"], case_sensitive=False), help="Genome.")
+@click.option("--resolution", default="1kb", show_default=True,
+              type=click.Choice(["1kb", "200bp", "2kb", "4kb"], case_sensitive=False), help="Resolution. Mouse only supports 1kb resolution.")
+
+@click.option("--chrombert-cache-dir", "chrombert_cache_dir",
+              default=os.path.expanduser("~/.cache/chrombert/data"),
+              show_default=True,
+              type=click.Path(file_okay=False),
+              help="ChromBERT cache dir. Default is ~/.cache/chrombert/data. if you use command `chrombert_prepare_env` to download the data, you don't need to provide this.")
+
+@click.option("--chrombert-region-file", "chrombert_region_file",
+              default=None,
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              help="ChromBERT region BED file. If not provided, use the default hg38_6k_1kb_region.bed in the cache dir.")
+@click.option("--chrombert-region-emb-file", "chrombert_region_emb_file",
+              default=None,
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              help="ChromBERT region embedding file. If not provided, use the default hm_1kb_all_region_emb.npy in the cache dir.")
+def embed_region(region_bed, odir, genome, resolution, chrombert_cache_dir,chrombert_region_file, chrombert_region_emb_file):      
+    args = SimpleNamespace(
+        region_bed=region_bed,
+        odir=odir,
+        genome=genome,
+        resolution=resolution,
+        chrombert_cache_dir=chrombert_cache_dir,
+        chrombert_region_file=chrombert_region_file,
+        chrombert_region_emb_file=chrombert_region_emb_file
+    )
+    run(args)

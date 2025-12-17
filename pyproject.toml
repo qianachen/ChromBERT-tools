@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=61", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "chrombert-tools"
+version = "1.0.0"
+description = "ChromBERT-tools: A lightweight GitHub toolkit that exposes core ChromBERT functionality through easy-to-use command-line tools (CLI)"
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+    "click>=8.0",
+]
+
+[project.scripts]
+chrombert-tools = "chrombert_tools.cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["chrombert_tools*"]
