@@ -47,7 +47,7 @@ def cli(verbose, debug):
 from . import (
     embed_region,
     embed_regulator,
-    # embed_cistrome,
+    embed_cistrome,
     # embed_gene,
     # embed_cell_region,
     # embed_cell_cistrome,
@@ -62,3 +62,4 @@ from . import (
 # Register all subcommands
 cli.add_command(embed_region.embed_region)
 cli.add_command(embed_regulator.embed_regulator)
+cli.add_command(embed_cistrome.embed_cistrome)
