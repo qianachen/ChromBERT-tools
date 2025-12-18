@@ -4,7 +4,6 @@ import json
 import click
 import pickle
 from types import SimpleNamespace
-import subprocess as sp
 
 import numpy as np
 import pandas as pd
@@ -14,164 +13,8 @@ from tqdm import tqdm
 import chrombert
 from chrombert import ChromBERTFTConfig, DatasetConfig
 from chrombert.scripts.utils import HDF5Manager
+from .utils import resolve_paths, check_files, overlap_region, chrom_to_int_series, overlap_cistrome_func
 
-
-def _nd_from_genome(genome: str) -> str:
-    genome = genome.lower()
-    if genome == "hg38":
-        return "6k"
-    if genome == "mm10":
-        return "5k"
-    raise ValueError(f"Genome {genome} not supported!")
-
-
-def resolve_paths(args):
-    """
-    Standard cache layout:
-      {cache}/config/{genome}_{nd}_{resolution}_region.bed
-      {cache}/{genome}_{nd}_{resolution}.hdf5
-      {cache}/checkpoint/{genome}_{nd}_{resolution}_pretrain.ckpt
-      {cache}/config/{genome}_{nd}_mask_matrix.tsv
-      {cache}/config/{genome}_{nd}_meta.json
-    Allow overrides for any file.
-    """
-    nd = _nd_from_genome(args.genome)
-
-    chrombert_region_file = os.path.join(
-        args.chrombert_cache_dir, "config", f"{args.genome}_{nd}_{args.resolution}_region.bed"
-    )
-    hdf5_file = os.path.join(
-        args.chrombert_cache_dir, f"{args.genome}_{nd}_{args.resolution}.hdf5"
-    )
-    pretrain_ckpt = os.path.join(
-        args.chrombert_cache_dir, "checkpoint", f"{args.genome}_{nd}_{args.resolution}_pretrain.ckpt"
-    )
-    mtx_mask = os.path.join(
-        args.chrombert_cache_dir, "config", f"{args.genome}_{nd}_mask_matrix.tsv"
-    )
-    meta_file = os.path.join(
-        args.chrombert_cache_dir, "config", f"{args.genome}_{nd}_meta.json"
-    )
-
-    return {
-        "chrombert_region_file": chrombert_region_file,
-        "hdf5_file": hdf5_file,
-        "pretrain_ckpt": pretrain_ckpt,
-        "mtx_mask": mtx_mask,
-        "meta_file": meta_file,
-    }
-
-
-def check_files(files_dict):
-    missing = [f"{k}: {v}" for k, v in files_dict.items() if not os.path.exists(v)]
-    if missing:
-        raise FileNotFoundError(
-            "ChromBERT required file(s) not found:\n  - "
-            + "\n  - ".join(missing)
-            + "\nHint: run `chrombert_prepare_env` or pass the missing path(s) explicitly."
-        )
-
-
-def chrom_to_int_series(chrom_series: pd.Series, genome: str) -> pd.Series:
-    """hg38: 1-22,X=23,Y=24; mm10: 1-19,X=20,Y=21"""
-    genome = genome.lower()
-    if genome == "hg38":
-        x_id, y_id, max_auto = 23, 24, 22
-    elif genome == "mm10":
-        x_id, y_id, max_auto = 20, 21, 19
-    else:
-        raise ValueError(f"Genome {genome} not supported for chrom mapping")
-
-    def _map_one(c):
-        if pd.isna(c):
-            return np.nan
-        c = str(c).strip()
-        c = c[3:] if c.lower().startswith("chr") else c
-        if c.upper() == "X":
-            return x_id
-        if c.upper() == "Y":
-            return y_id
-        if re.fullmatch(r"\d+", c):
-            v = int(c)
-            return v if 1 <= v <= max_auto else np.nan
-        return np.nan
-
-    return chrom_series.map(_map_one)
-
-
-def overlap_region(region_bed, chrombert_region_file, odir):
-    os.makedirs(odir, exist_ok=True)
-
-    # overlapping focus regions
-    cmd_overlap = f"""
-    cut -f 1-3 {region_bed} \
-    | sort -k1,1 -k2,2n \
-    | bedtools intersect -F 0.5 -wa -wb -a {chrombert_region_file} -b - \
-    | awk 'BEGIN{{OFS="\\t"}}{{print $5,$6,$7,$4}}' \
-    > {odir}/overlap_focus.bed
-    """
-    sp.run(cmd_overlap, shell=True, check=True, executable="/bin/bash")
-
-    overlap_bed = pd.read_csv(
-        f"{odir}/overlap_focus.bed",
-        sep="\t",
-        header=None,
-        names=["chrom", "start", "end", "build_region_index"],
-    )
-    overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
-
-    # non-overlapping focus regions
-    cmd_no = f"""
-    cut -f 1-3 {region_bed} \
-    | sort -k1,1 -k2,2n \
-    | bedtools intersect -f 0.5 -v -a - -b {chrombert_region_file} \
-    > {odir}/no_overlap_focus.bed
-    """
-    sp.run(cmd_no, shell=True, check=True, executable="/bin/bash")
-
-    total_focus = sum(1 for _ in open(region_bed))
-    no_overlap_len = sum(1 for _ in open(f"{odir}/no_overlap_focus.bed"))
-    print(
-        f"Focus region summary - total: {total_focus}, "
-        f"overlapping with ChromBERT: {overlap_bed.shape[0]} (one focus region may overlap multiple ChromBERT regions), "
-        f"non-overlapping: {no_overlap_len}"
-    )
-    return overlap_bed
-
-
-def overlap_cistrome_func(cistrome: str, chrombert_meta_file: str):
-    focus_list = [r.strip().lower() for r in cistrome.split(";") if r.strip()]
-    gsm_ids = [i for i in focus_list if ":" not in i]
-    reg_ids = [i for i in focus_list if ":" in i]
-
-    with open(chrombert_meta_file) as f:
-        meta = json.load(f)
-
-    overlap = []
-    not_overlap = []
-    cistrome_gsmid_dict = {}
-
-    for i in gsm_ids:
-        if i in meta:
-            overlap.append(i)
-            cistrome_gsmid_dict[i] = i
-        else:
-            not_overlap.append(i)
-
-    for i in reg_ids:
-        if i in meta:
-            overlap.append(i)
-            cistrome_gsmid_dict[i] = meta[i]  # map factor:cell -> GSM/ENCODE id
-        else:
-            not_overlap.append(i)
-
-    print("Note: All cistrome names were converted to lowercase for matching.")
-    print(
-        f"Cistromes count summary - requested: {len(focus_list)}, "
-        f"matched in ChromBERT meta: {len(overlap)}, "
-        f"not found: {len(not_overlap)}"
-    )
-    return overlap, not_overlap, cistrome_gsmid_dict
 
 
 def run(args):
@@ -220,7 +63,7 @@ def run(args):
     total_counts = 0
     cistrome_sums = {name: np.zeros(768, dtype=np.float64) for name in cistrome_gsmid_dict}
     
-    out_h5 = f"{args.odir}/save_cistrome_emb_on_specific_region.hdf5"
+    out_h5 = f"{args.odir}/cistrome_emb_on_region.hdf5"
     with HDF5Manager(out_h5, region=[(len(ds), 4), np.int64], **shapes) as h5:
         with torch.no_grad():
             for batch in tqdm(dl, total=len(dl)):
@@ -275,7 +118,7 @@ def run(args):
               type=click.Choice(["1kb", "200bp", "2kb", "4kb"], case_sensitive=False), help="Resolution.")
 @click.option("--batch-size", default=64, show_default=True, type=int, help="Batch size.")
 @click.option("--num-workers", default=8, show_default=True, type=int, help="Dataloader workers.")
-@click.option("--chrombert-cache-dir", default=os.path.expanduser("~/.cache/chrombert/data"),
+@click.option("--chrombert-cache-dir", "chrombert_cache_dir", default=os.path.expanduser("~/.cache/chrombert/data"),
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
 
