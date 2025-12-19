@@ -49,12 +49,12 @@ from . import (
     embed_regulator,
     embed_cistrome,
     embed_gene,
+    embed_cell_gene,
+    embed_cell_cistrome,
+    embed_cell_region,
+    embed_cell_regulator,
     infer_trn,
     infer_cell_trn,
-    # embed_cell_region,
-    # embed_cell_cistrome,
-    # embed_cell_gene,
-    # embed_cell_regulator,
     # impute_cistrome,
     # find_driver_in_dual_region,
 )
@@ -64,6 +64,10 @@ cli.add_command(embed_region.embed_region)
 cli.add_command(embed_regulator.embed_regulator)
 cli.add_command(embed_cistrome.embed_cistrome)
 cli.add_command(embed_gene.embed_gene)
+cli.add_command(embed_cell_gene.embed_cell_gene)
+cli.add_command(embed_cell_cistrome.embed_cell_cistrome)
+cli.add_command(embed_cell_region.embed_cell_region)
+cli.add_command(embed_cell_regulator.embed_cell_regulator)
 cli.add_command(infer_trn.infer_trn)
 cli.add_command(infer_cell_trn.infer_cell_trn)
 

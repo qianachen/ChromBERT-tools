@@ -8,6 +8,7 @@ import bbi
 import glob
 import torch
 import re
+import random
 from sklearn.metrics.pairwise import cosine_similarity
 
 def _nd_from_genome(genome: str) -> str:
@@ -115,32 +116,32 @@ def overlap_region(region_bed, chrombert_region_file, odir):
     | sort -k1,1 -k2,2n \
     | bedtools intersect -F 0.5 -wa -wb -a {chrombert_region_file} -b - \
     | awk 'BEGIN{{OFS="\\t"}}{{print $5,$6,$7,$4}}' \
-    > {odir}/overlap_focus.bed
+    > {odir}/overlap_region.bed
     """
     sp.run(cmd_overlap, shell=True, check=True, executable="/bin/bash")
 
     overlap_bed = pd.read_csv(
-        f"{odir}/overlap_focus.bed",
+        f"{odir}/overlap_region.bed",
         sep="\t",
         header=None,
         names=["chrom", "start", "end", "build_region_index"],
     )
     overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
 
-    # non-overlapping focus regions
+    # non-overlapping regions
     cmd_no = f"""
     cut -f 1-3 {region_bed} \
     | sort -k1,1 -k2,2n \
     | bedtools intersect -f 0.5 -v -a - -b {chrombert_region_file} \
-    > {odir}/no_overlap_focus.bed
+    > {odir}/no_overlap_region.bed
     """
     sp.run(cmd_no, shell=True, check=True, executable="/bin/bash")
 
-    total_focus = sum(1 for _ in open(region_bed))
-    no_overlap_len = sum(1 for _ in open(f"{odir}/no_overlap_focus.bed"))
+    total_region = sum(1 for _ in open(region_bed))
+    no_overlap_len = sum(1 for _ in open(f"{odir}/no_overlap_region.bed"))
     print(
-        f"Focus region summary - total: {total_focus}, "
-        f"overlapping with ChromBERT: {overlap_bed.shape[0]} (one focus region may overlap multiple ChromBERT regions), "
+        f"Region summary - total: {total_region}, "
+        f"overlapping with ChromBERT: {overlap_bed.shape[0]} (one region may overlap multiple ChromBERT regions), "
         f"non-overlapping: {no_overlap_len}"
     )
     return overlap_bed
@@ -311,7 +312,7 @@ def cal_metrics_regression(preds, labels):
 
 
 
-def model_eval(args, train_odir, data_module, model_config, cal_metrics):
+def model_eval(train_odir, data_module, model_config, cal_metrics):
     ckpts = glob.glob(f"{train_odir}/**/checkpoints/*.ckpt", recursive=True)
     if not ckpts:
         raise FileNotFoundError(
@@ -340,9 +341,10 @@ def model_eval(args, train_odir, data_module, model_config, cal_metrics):
 
     test_metrics = cal_metrics(test_preds, test_labels)
     print(f"ft_ckpt: {ft_ckpt}, test_metrics: {test_metrics}")
+    test_metrics['ft_ckpt'] = ft_ckpt
     with open(os.path.join(train_odir, "eval_performance.json"), "w") as f:
         json.dump(test_metrics, f)
-    return model_tuned
+    return model_tuned, test_metrics
 
 
 def model_embedding(train_odir=None, model_config=None, ft_ckpt=None, model_tuned=None):
@@ -357,7 +359,7 @@ def model_embedding(train_odir=None, model_config=None, ft_ckpt=None, model_tune
         else:
             ft_ckpt = ft_ckpt
             
-        model_tuned = model_config.init_model()
+        model_tuned = model_config.init_model(finetune_ckpt=ft_ckpt, dropout=0).eval().cuda()
 
     model_emb = model_tuned.get_embedding_manager().cuda()
     return model_emb
@@ -378,3 +380,14 @@ def factor_rank(emb1,emb2,regulator,odir):
     cos_sim_df.to_csv(f"{odir}/factor_importance_rank.csv", index=False)
     print(cos_sim_df.head(n=25))
     return cos_sim_df
+
+
+def set_seed(seed: int):
+    """Set seeds for reproducibility while keeping training stochastic."""
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # Keep these settings for speed; set deterministic=True if you want strict determinism.
+    torch.backends.cudnn.deterministic = False
+    torch.backends.cudnn.benchmark = True

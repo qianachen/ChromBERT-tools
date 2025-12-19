@@ -13,11 +13,11 @@ import matplotlib.pyplot as plt
 from types import SimpleNamespace
 from chrombert import ChromBERTFTConfig, DatasetConfig
 from sklearn.metrics.pairwise import cosine_similarity
-
+from .utils import set_seed
 from .utils import resolve_paths, check_files
 from .utils import cal_metrics_regression, model_eval
 from .utils import model_embedding, factor_rank
-from .utils_train_cell import make_dataset, model_train
+from .utils_train_cell import make_dataset, retry_train
 
 
 def generate_emb(data_config, model_emb, sup_file, odir, name):
@@ -88,7 +88,7 @@ def plot_regulator_subnetwork(G, target_reg, odir, k_hop=1, threshold=None, quan
     plt.savefig(f"{odir}/subnetwork_{target_reg}_k{k_hop}.pdf")
 
 
-def plot_trn(embs, regulators, focus_regulator, odir, quantile=0.99):
+def plot_trn(embs, regulators, focus_regulator, odir, quantile=0.99, k_hop=1):
     cos_sim = cosine_similarity(embs)
     cos_sim_df = pd.DataFrame(cos_sim, index=regulators, columns=regulators)
     cos_sim_df.to_csv(f"{odir}/regulator_cosine_similarity.tsv", sep="\t", index=True)
@@ -118,7 +118,7 @@ def plot_trn(embs, regulators, focus_regulator, odir, quantile=0.99):
     print(f"Number of edges of total graph (threshold={threshold:.3f}):", G.number_of_edges())
     if focus_regulator is not None:
         for reg in focus_regulator:
-            plot_regulator_subnetwork(G, reg, odir, k_hop=1, threshold=threshold, quantile=quantile)
+            plot_regulator_subnetwork(G, reg, odir, k_hop=k_hop, threshold=threshold, quantile=quantile)
 
 def run(args):
     odir = args.odir
@@ -165,11 +165,15 @@ def run(args):
         print("Finished stage 2")
     else:
         print("Stage 2: Fine-tuning the model")
-        data_module, model_config = model_train(d_odir, train_odir, args, files_dict)
-        data_config = data_module.basic_config
-        print("Finished stage 2: the important stage, Congratudate you get a cell-specific chrombert")
-        print("Evaluating the finetuned model performance")
-        model_tuned = model_eval(args, train_odir, data_module, model_config, cal_metrics_regression)
+        model_tuned, train_odir, model_config, data_config = retry_train(d_odir, train_odir, args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.4)
+
+        # data_module, model_config = model_train(d_odir, train_odir, args, files_dict)
+        # data_config = data_module.basic_config
+        # print("Finished stage 2: the important stage, Congratudate you get a cell-specific chrombert")
+        # print("Evaluating the finetuned model performance")
+        # model_tuned, test_metrics = model_eval(args, train_odir, data_module, model_config, cal_metrics_regression)
+        # if test_metrics['pcc'] < 0.4:
+        #     print("Warning: The model performs poorly (e.g., NaNs or low correlation), try rerunning the training once or twice; results can vary due to random initialization and stochastic optimization.")
 
     # 3) embedding
     print("Stage 3: generate regulator embedding on different activity regions")
@@ -187,7 +191,7 @@ def run(args):
     # 5) TRN
     print("Stage 5: plot TRN")
     focus_regulator = cos_sim_df.head(n=25).factors.tolist()
-    plot_trn(up_emb, model_emb.list_regulator, focus_regulator, results_odir, quantile=args.quantile)
+    plot_trn(up_emb, model_emb.list_regulator, focus_regulator, results_odir, quantile=args.quantile, k_hop=args.k_hop)
     print("Finished stage 5")
 
     print("Finished all stages!")

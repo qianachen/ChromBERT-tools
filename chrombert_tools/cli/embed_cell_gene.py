@@ -11,7 +11,7 @@ from tqdm import tqdm
 import chrombert
 from chrombert import ChromBERTFTConfig, DatasetConfig
 from .utils import resolve_paths, check_files
-from .utils_train_cell import make_dataset, model_train
+from .utils_train_cell import make_dataset, retry_train
 from .utils import model_eval, cal_metrics_regression, model_embedding
 from .utils import overlap_gene_map_region
 
@@ -80,10 +80,8 @@ def run(args):
         print("Finished stage 2")
     else:
         print("Stage 2: Fine-tuning the model for cell-specific embeddings")
-        data_module, model_config = model_train(d_odir, train_odir, args, files_dict)
+        model_tuned, train_odir, model_config, data_config = retry_train(d_odir, train_odir, args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.4)
         print("Finished stage 2: Got a cell-specific ChromBERT model")
-        print("Evaluating the fine-tuned model performance")
-        model_tuned = model_eval(args, train_odir, data_module, model_config, cal_metrics_regression)
 
     # ---------- compute gene embeddings using cell-specific model ----------
     print("Stage 3: Computing cell-specific gene embeddings")

@@ -1,8 +1,6 @@
 import os
 import click
 from types import SimpleNamespace
-import os
-import subprocess as sp
 import numpy as np
 import pandas as pd
 import chrombert
@@ -91,7 +89,7 @@ def run(args):
     if os.path.exists(emb_npy_path):
         all_emb = np.load(emb_npy_path)
         overlap_emb = all_emb[overlap_idx]
-        np.save(f"{odir}/overlap_focus_emb.npy", overlap_emb)
+        np.save(f"{odir}/overlap_region_emb.npy", overlap_emb)
     else:
         print(f"ChromBERT region embedding file not found: {emb_npy_path}, and not directly pick region embedding from cache dir.")
         print("Load model ChromBERT to embed focus regions.")
@@ -107,22 +105,22 @@ def run(args):
                 model_emb(batch) # initialize the cache 
                 region_embs.append(model_emb.get_region_embedding().float().cpu().detach())
         region_embs = torch.cat(region_embs,axis=0).numpy()
-        np.save(f"{odir}/overlap_focus_emb.npy", region_embs)
+        np.save(f"{odir}/overlap_region_emb.npy", region_embs)
         
 
     # ---------- report ----------
     total_focus = sum(1 for _ in open(focus_region_bed))
-    no_overlap_region_len = sum(1 for _ in open(f"{odir}/no_overlap_focus.bed"))
+    no_overlap_region_len = sum(1 for _ in open(f"{odir}/no_overlap_region.bed"))
 
     print("Finished!")
     print(
         f"Focus region summary - total: {total_focus}, "
-        f"overlapping with ChromBERT: {overlap_bed.shape[0]}, It is possible for a single focus region to overlap multiple ChromBERT regions,"
+        f"overlapping with ChromBERT: {overlap_bed.shape[0]}, It is possible for a single region to overlap multiple ChromBERT regions,"
         f"non-overlapping: {no_overlap_region_len}"
     )
-    print("Overlapping focus regions BED file:", f"{odir}/overlap_focus.bed")
-    print("Non-overlapping focus regions BED file:", f"{odir}/no_overlap_focus.bed")
-    print("Overlapping focus region embeddings saved to:", f"{odir}/overlap_focus_emb.npy")
+    print("Overlapping focus regions BED file:", f"{odir}/overlap_region.bed")
+    print("Non-overlapping focus regions BED file:", f"{odir}/no_overlap_region.bed")
+    print("Overlapping focus region embeddings saved to:", f"{odir}/overlap_region_emb.npy")
 
 
 @click.command(name="embed_region",

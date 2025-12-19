@@ -1,10 +1,12 @@
+import os
 import numpy as np
 import pandas as pd
 import chrombert
 import torchmetrics as tm
 import lightning.pytorch as pl
 from chrombert import ChromBERTFTConfig, DatasetConfig
-from .utils import bw_getSignal_bins, split_data
+from .utils import set_seed
+from .utils import bw_getSignal_bins, split_data, model_eval
 from lightning.pytorch.callbacks import TQDMProgressBar
 from chrombert.scripts.chrombert_make_dataset import process
 
@@ -153,3 +155,72 @@ def model_train(d_odir, train_odir, args, files_dict):
     )
     trainer.fit(train_module, data_module)
     return data_module, model_config
+
+
+def retry_train(d_odir, train_odir, args, files_dict, cal_metrics, metcic='pearsonr',min_threshold=0.2):
+
+    best_model = None
+    best_train_odir = None
+    best_metrics = None
+    best_pcc = float("-inf")
+    last_err = None
+    max_retries = 2   # number of retries after the first run
+    min_pcc = min_threshold       # acceptance threshold
+    base_seed = getattr(args, "seed", 55)
+    for attempt in range(max_retries + 1):
+        trial_seed = base_seed + attempt
+        set_seed(trial_seed)
+
+        # (Optional) isolate each attempt's outputs
+        train_odir_try = os.path.join(train_odir, f"try_{attempt:02d}_seed_{trial_seed}")
+        os.makedirs(train_odir_try, exist_ok=True)
+
+        print(f"\n[Attempt {attempt}/{max_retries}] seed={trial_seed}")
+        try:
+            data_module, model_config = model_train(d_odir, train_odir_try, args, files_dict)
+            data_config = data_module.basic_config
+
+            print("Evaluating the finetuned model performance")
+            model_tuned, test_metrics = model_eval(
+                train_odir_try, data_module, model_config, cal_metrics
+            )
+
+            pcc = float(test_metrics.get(metcic, float("nan")))
+            print(f"Attempt metrics: pcc={pcc}")
+
+            # Track best run even if it doesn't pass threshold
+            if np.isfinite(pcc) and pcc > best_pcc:
+                best_pcc = pcc
+                best_model = model_tuned
+                best_train_odir = train_odir_try
+                best_metrics = test_metrics
+
+            # Accept if stable and good enough
+            if np.isfinite(pcc) and (pcc >= min_pcc):
+                print(f"Accepted run (pcc={pcc:.4f} >= {min_pcc}).")
+                best_model = model_tuned
+                best_train_odir = train_odir_try
+                best_metrics = test_metrics
+                break
+
+            print(
+                f"Poor/unstable run (pcc={pcc}). "
+                "Retrying with a different seed due to random initialization and stochastic optimization..."
+            )
+
+        except Exception as e:
+            last_err = e
+            print(f"Attempt failed with error: {repr(e)}")
+            print("Retrying with a different seed...")
+
+    # Finalize
+    if best_model is None:
+        raise RuntimeError(f"All attempts failed. Last error: {repr(last_err)}")
+
+    model_tuned = best_model
+    test_metrics = best_metrics
+    train_odir = best_train_odir
+    print("\nFinished stage 2: obtained a cell-specific ChromBERT")
+    print(f"Best pcc={best_pcc}, metrics={test_metrics}")
+    return model_tuned, train_odir, model_config, data_config
+    
