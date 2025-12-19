@@ -72,8 +72,7 @@ def run(args):
         
         print("Stage 2b: Fine-tuning the model for cell-specific embeddings")
         model_tuned, train_odir, model_config, data_config = retry_train(
-            d_odir, train_odir, args, files_dict, 
-            cal_metrics_regression, metcic='pearsonr', min_threshold=0.4
+            args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.4
         )
         print("Finished stage 2b: Got a cell-specific ChromBERT model")
     elif args.ft_ckpt is not None:

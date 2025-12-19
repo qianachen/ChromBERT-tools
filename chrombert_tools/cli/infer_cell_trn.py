@@ -165,7 +165,7 @@ def run(args):
         print("Finished stage 2")
     else:
         print("Stage 2: Fine-tuning the model")
-        model_tuned, train_odir, model_config, data_config = retry_train(d_odir, train_odir, args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.4)
+        model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.4)
 
         # data_module, model_config = model_train(d_odir, train_odir, args, files_dict)
         # data_config = data_module.basic_config

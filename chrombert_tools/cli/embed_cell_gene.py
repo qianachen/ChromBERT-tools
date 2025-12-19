@@ -80,7 +80,7 @@ def run(args):
         print("Finished stage 2")
     else:
         print("Stage 2: Fine-tuning the model for cell-specific embeddings")
-        model_tuned, train_odir, model_config, data_config = retry_train(d_odir, train_odir, args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.4)
+        model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.4)
         print("Finished stage 2: Got a cell-specific ChromBERT model")
 
     # ---------- compute gene embeddings using cell-specific model ----------

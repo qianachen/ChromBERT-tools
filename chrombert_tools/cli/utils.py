@@ -345,7 +345,37 @@ def cal_metrics_regression(preds, labels):
     }
     return metrics
 
+def cal_metrics_binary(preds, labels):
+    metrics_auroc = tm.AUROC(task="binary", ignore_index=-1)
+    metrics_auprc = tm.AveragePrecision(task="binary", ignore_index=-1)
+    metrics_mcc = tm.MatthewsCorrCoef(task="binary", ignore_index=-1)
+    metrics_f1 = tm.F1Score(task="binary", ignore_index=-1)
+    metrics_precision = tm.Precision(task="binary", ignore_index=-1)
+    metrics_recall = tm.Recall(task="binary", ignore_index=-1)
 
+    score_auroc = metrics_auroc(preds, labels).item()
+    score_auprc = metrics_auprc(preds, labels).item()
+    score_mcc = metrics_mcc(preds, labels).item()
+    score_f1 = metrics_f1(preds, labels).item()
+    score_precision = metrics_precision(preds, labels).item()
+    score_recall = metrics_recall(preds, labels).item()
+
+    metrics_auroc.reset()
+    metrics_auprc.reset()
+    metrics_mcc.reset()
+    metrics_f1.reset()
+    metrics_precision.reset()
+    metrics_recall.reset()
+
+    metrics = {
+        "auroc": score_auroc,
+        "auprc": score_auprc,
+        "mcc": score_mcc,
+        "f1": score_f1,
+        "precision": score_precision,
+        "recall": score_recall,
+    }
+    return metrics
 
 def model_eval(train_odir, data_module, model_config, cal_metrics):
     ckpts = glob.glob(f"{train_odir}/**/checkpoints/*.ckpt", recursive=True)
@@ -356,7 +386,7 @@ def model_eval(train_odir, data_module, model_config, cal_metrics):
     ft_ckpt = os.path.abspath(max(ckpts, key=os.path.getmtime))
 
     dc_test = data_module.test_config
-    dl_test = dc_test.init_dataloader(batch_size=64)
+    dl_test = dc_test.init_dataloader(batch_size=4)
 
     model_tuned = model_config.init_model(finetune_ckpt=ft_ckpt, dropout=0).eval().cuda()
 

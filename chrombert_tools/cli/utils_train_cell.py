@@ -73,7 +73,8 @@ def make_dataset(peak, bw, d_odir, files_dict):
     nochange_region.to_csv(f"{d_odir}/nochange_region.csv", index=False)
 
 
-def init_datamodule(d_odir, args, files_dict):
+def init_datamodule(d_odir, args, files_dict,ignore_object=None):
+    ignore = True if ignore_object is not None else False
     # 1. init dataconfig
     data_config = DatasetConfig(
         kind="GeneralDataset",
@@ -81,9 +82,15 @@ def init_datamodule(d_odir, args, files_dict):
         hdf5_file=files_dict["hdf5_file"],
         batch_size=args.batch_size,
         num_workers=8,
+        meta_file=files_dict["meta_file"]
     )
+    if ignore:
+        data_config.ignore = ignore
+        data_config.ignore_object = ignore_object
+        
     # 2. init datamodule
     if args.mode == "fast":
+        ds = data_config.init_dataset(supervised_file=os.path.join(d_odir, "train_sampled.csv"))
         data_module = chrombert.LitChromBERTFTDataModule(
             config=data_config,
             train_params={"supervised_file": f"{d_odir}/train_sampled.csv"},
@@ -91,6 +98,7 @@ def init_datamodule(d_odir, args, files_dict):
             test_params={"supervised_file": f"{d_odir}/test_sampled.csv"},
         )
     else:
+        ds = data_config.init_dataset(supervised_file=os.path.join(d_odir, "train.csv"))
         data_module = chrombert.LitChromBERTFTDataModule(
             config=data_config,
             train_params={"supervised_file": f"{d_odir}/train.csv"},
@@ -98,10 +106,13 @@ def init_datamodule(d_odir, args, files_dict):
             test_params={"supervised_file": f"{d_odir}/test.csv"},
         )
     data_module.setup()
-    return data_config, data_module
+    
+    ignore_index = ds[0]["ignore_index"] if ignore else None
+    
+    return data_config, data_module, ignore, ignore_index
 
-def model_train(d_odir, train_odir, args, files_dict):
-    data_config, data_module = init_datamodule(d_odir, args, files_dict)
+def model_train(d_odir, train_odir, args, files_dict, train_kind = 'regression', ignore_object=None):
+    data_config, data_module, ignore, ignore_index = init_datamodule(d_odir, args, files_dict, ignore_object)
 
     # 3. init chrombert
     model_config = ChromBERTFTConfig(
@@ -109,24 +120,28 @@ def model_train(d_odir, train_odir, args, files_dict):
         task="general",
         pretrain_ckpt=files_dict["pretrain_ckpt"],
         mtx_mask=files_dict["mtx_mask"],
+        ignore = ignore,
+        ignore_index = ignore_index,
     )
+        
     model = model_config.init_model()
     model.freeze_pretrain(2)  # freeze chrombert 6 transformer blocks during fine-tuning
 
     # 4. init trainer
+    loss = 'rmse' if train_kind == 'regression' else "bce" # binary classification
+    callback_metrics = "pcc" if train_kind == 'regression' else "auprc" # binary classification
     train_config = chrombert.finetune.TrainConfig(
-        kind="regression",
-        loss="rmse",
+        kind=train_kind,
+        loss=loss,
         max_epochs=5,
         accumulate_grad_batches=8,
         val_check_interval=0.2,
         limit_val_batches=0.5,
-        tag="cell_specific",
     )
     train_module = train_config.init_pl_module(model)
-    callback_ckpt = pl.callbacks.ModelCheckpoint(monitor=f"{train_config.tag}_validation/pcc", mode="max")
+    callback_ckpt = pl.callbacks.ModelCheckpoint(monitor=f"{train_config.tag}_validation/{callback_metrics}", mode="max")
     early_stop = pl.callbacks.EarlyStopping(
-        monitor=f"{train_config.tag}_validation/pcc",
+        monitor=f"{train_config.tag}_validation/{callback_metrics}",
         mode="max",
         patience=5,
         min_delta=0.01,
@@ -151,14 +166,15 @@ def model_train(d_odir, train_odir, args, files_dict):
             early_stop,
             TQDMProgressBar(refresh_rate=refresh_rate),
         ],
-        logger=pl.loggers.TensorBoardLogger(f"./{train_odir}/lightning_logs", name="cell_specific"),
+        logger=pl.loggers.TensorBoardLogger(f"./{train_odir}/lightning_logs"),
     )
     trainer.fit(train_module, data_module)
     return data_module, model_config
 
 
-def retry_train(d_odir, train_odir, args, files_dict, cal_metrics, metcic='pearsonr',min_threshold=0.2):
-
+def retry_train(args, files_dict, cal_metrics, metcic='pearsonr',min_threshold=0.2, train_kind = 'regression',ignore_object=None):
+    d_odir = f"{args.odir}/dataset"; os.makedirs(d_odir, exist_ok=True)
+    train_odir = f"{args.odir}/train"; os.makedirs(train_odir, exist_ok=True)
     best_model = None
     best_train_odir = None
     best_metrics = None
@@ -177,7 +193,7 @@ def retry_train(d_odir, train_odir, args, files_dict, cal_metrics, metcic='pears
 
         print(f"\n[Attempt {attempt}/{max_retries}] seed={trial_seed}")
         try:
-            data_module, model_config = model_train(d_odir, train_odir_try, args, files_dict)
+            data_module, model_config = model_train(d_odir, train_odir_try, args, files_dict, train_kind, ignore_object)
             data_config = data_module.basic_config
 
             print("Evaluating the finetuned model performance")
@@ -186,7 +202,7 @@ def retry_train(d_odir, train_odir, args, files_dict, cal_metrics, metcic='pears
             )
 
             pcc = float(test_metrics.get(metcic, float("nan")))
-            print(f"Attempt metrics: pcc={pcc}")
+            print(f"Attempt metrics: {metcic}={pcc}")
 
             # Track best run even if it doesn't pass threshold
             if np.isfinite(pcc) and pcc > best_pcc:
@@ -197,14 +213,14 @@ def retry_train(d_odir, train_odir, args, files_dict, cal_metrics, metcic='pears
 
             # Accept if stable and good enough
             if np.isfinite(pcc) and (pcc >= min_pcc):
-                print(f"Accepted run (pcc={pcc:.4f} >= {min_pcc}).")
+                print(f"Accepted run ({metcic}={pcc:.4f} >= {min_pcc}).")
                 best_model = model_tuned
                 best_train_odir = train_odir_try
                 best_metrics = test_metrics
                 break
 
             print(
-                f"Poor/unstable run (pcc={pcc}). "
+                f"Poor/unstable run ({metcic}={pcc}). "
                 "Retrying with a different seed due to random initialization and stochastic optimization..."
             )
 
@@ -220,7 +236,7 @@ def retry_train(d_odir, train_odir, args, files_dict, cal_metrics, metcic='pears
     model_tuned = best_model
     test_metrics = best_metrics
     train_odir = best_train_odir
-    print("\nFinished stage 2: obtained a cell-specific ChromBERT")
-    print(f"Best pcc={best_pcc}, metrics={test_metrics}")
+    print("\nFinished stage 2: obtained a fine-tuned ChromBERT")
+    print(f"Best {metcic}={best_pcc}, metrics={test_metrics}")
     return model_tuned, train_odir, model_config, data_config
     
