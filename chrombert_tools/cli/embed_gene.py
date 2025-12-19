@@ -58,7 +58,7 @@ def model_emb_func(args, files_dict, odir):
     """Initialize dataloader and ChromBERT embedding manager for fallback region embedding computation."""
     data_config = DatasetConfig(
         kind="GeneralDataset",
-        supervised_file=f"{odir}/model_input.csv",
+        supervised_file=f"{odir}/model_input.tsv",
         hdf5_file=files_dict["hdf5_file"],
         batch_size=4,
         num_workers=8,
@@ -130,8 +130,8 @@ def run(args):
         if sub_df.shape[0] == 0:
             raise ValueError("No required build_region_index found in chrombert_region_file. Check gene_meta vs region.bed.")
 
-        # embed_region template writes model_input.csv then runs model_emb_func
-        sub_df.to_csv(f"{odir}/model_input.csv", index=False)
+        # embed_region template writes model_input.tsv then runs model_emb_func
+        sub_df.to_csv(f"{odir}/model_input.tsv", index=False,sep='\t')
 
         ds, dl, model_emb = model_emb_func(args, files_dict, odir)
 

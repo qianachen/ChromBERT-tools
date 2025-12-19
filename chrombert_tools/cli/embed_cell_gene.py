@@ -105,7 +105,7 @@ def run(args):
         raise ValueError("No required build_region_index found in chrombert_region_file. Check gene_meta vs region.bed.")
 
     # Save model input
-    sub_df.to_csv(f"{odir}/model_input.csv", index=False)
+    sub_df.to_csv(f"{odir}/model_input.tsv", index=False,sep='\t')
 
     # Get embedding manager from fine-tuned model
     model_emb = model_embedding(train_odir=train_odir, model_config=model_config, ft_ckpt=args.ft_ckpt, model_tuned=model_tuned)
@@ -113,7 +113,7 @@ def run(args):
     # Prepare dataloader for gene regions
     data_config = DatasetConfig(
         kind="GeneralDataset",
-        supervised_file=f"{odir}/model_input.csv",
+        supervised_file=f"{odir}/model_input.tsv",
         hdf5_file=files_dict["hdf5_file"],
         batch_size=args.batch_size,
         num_workers=8,

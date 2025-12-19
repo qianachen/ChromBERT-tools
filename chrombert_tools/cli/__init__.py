@@ -55,7 +55,7 @@ from . import (
     embed_cell_regulator,
     infer_trn,
     infer_cell_trn,
-    # impute_cistrome,
+    impute_cistrome,
     # find_driver_in_dual_region,
 )
 
@@ -70,4 +70,5 @@ cli.add_command(embed_cell_region.embed_cell_region)
 cli.add_command(embed_cell_regulator.embed_cell_regulator)
 cli.add_command(infer_trn.infer_trn)
 cli.add_command(infer_cell_trn.infer_cell_trn)
+cli.add_command(impute_cistrome.impute_cistrome)
 

@@ -11,7 +11,7 @@ from tqdm import tqdm
 import chrombert
 from chrombert import ChromBERTFTConfig, DatasetConfig
 from chrombert.scripts.utils import HDF5Manager
-from .utils import resolve_paths, check_files, overlap_region, chrom_to_int_series, overlap_regulator_func
+from .utils import resolve_paths, check_files, check_region_file, chrom_to_int_series, overlap_regulator_func
 from .utils_train_cell import make_dataset, retry_train
 from .utils import cal_metrics_regression, model_embedding
 
@@ -42,10 +42,14 @@ def run(args):
 
     # ---------- Stage 1: Prepare regions and regulators ----------
     print("Stage 1: Preparing regions and regulators")
-    overlap_bed = overlap_region(args.region_bed, files_dict["chrombert_region_file"], odir)
+    focus_region = args.region
+    overlap_bed = check_region_file(focus_region,files_dict,args.odir)
     
     # Chromosome mapping to integer
-    overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"], args.genome)
+    first_chrom = str(overlap_bed["chrom"].iloc[0])
+    if "chr" in first_chrom.lower():
+        overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"].astype(str), args.genome)
+
     overlap_bed = overlap_bed.dropna(subset=["chrom"]).copy()
     overlap_bed["chrom"] = overlap_bed["chrom"].astype(int)
     overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
@@ -174,10 +178,10 @@ def run(args):
 
 
 @click.command(name="embed_cell_regulator", context_settings={"help_option_names": ["-h", "--help"]})
-@click.option("--region-bed", "region_bed",
+@click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=True, 
-              help="Region BED file where regulator embeddings will be computed.")
+              help="Region file where regulator embeddings will be computed.")
 @click.option("--regulator", required=True,
               help="Regulators of interest, e.g. EZH2 or EZH2;BRD4. Use ';' to separate multiple regulators.")
 @click.option("--cell-type-bw", "cell_type_bw",
@@ -205,7 +209,7 @@ def run(args):
 @click.option("--mode", default="fast", show_default=True,
               type=click.Choice(["fast", "full"], case_sensitive=False),
               help="Fast: downsample regions to 20k for training; Full: use all regions.")
-@click.option("--batch-size", "batch_size", default=64, show_default=True, type=int,
+@click.option("--batch-size", "batch_size", default=4, show_default=True, type=int,
               help="Batch size.")
 @click.option("--num-workers", "num_workers", default=8, show_default=True, type=int,
               help="Dataloader workers.")
@@ -216,11 +220,11 @@ def run(args):
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
 
 
-def embed_cell_regulator(region_bed, regulator, cell_type_bw, cell_type_peak, ft_ckpt, 
+def embed_cell_regulator(region, regulator, cell_type_bw, cell_type_peak, ft_ckpt, 
                          odir, genome, resolution, mode, batch_size, num_workers, 
                          chrombert_cache_dir):
     args = SimpleNamespace(
-        region_bed=region_bed,
+        region=region,
         regulator=regulator,
         cell_type_bw=cell_type_bw,
         cell_type_peak=cell_type_peak,

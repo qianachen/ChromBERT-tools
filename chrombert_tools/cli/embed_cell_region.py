@@ -10,7 +10,7 @@ from tqdm import tqdm
 
 import chrombert
 from chrombert import ChromBERTFTConfig, DatasetConfig
-from .utils import resolve_paths, check_files, overlap_region
+from .utils import resolve_paths, check_files, check_region_file
 from .utils_train_cell import make_dataset, retry_train
 from .utils import cal_metrics_regression, model_embedding
 
@@ -36,15 +36,8 @@ def run(args):
 
     # ---------- Stage 1: Overlap focus regions with ChromBERT regions ----------
     print("Stage 1: Overlapping focus regions with ChromBERT regions")
-    focus_region_bed = args.region_bed
-    chrombert_region_bed = files_dict["chrombert_region_file"]
-    overlap_bed = overlap_region(focus_region_bed, chrombert_region_bed, odir)
-    
-    if overlap_bed.shape[0] == 0:
-        raise ValueError("No overlap found between your regions and ChromBERT regions.")
-    
-    # Save model input
-    overlap_bed.to_csv(f"{odir}/model_input.csv", index=False)
+    focus_region = args.region
+    overlap_bed = check_region_file(focus_region,files_dict,odir)
     print(f"Found {overlap_bed.shape[0]} overlapping regions")
     print("Finished stage 1")
 
@@ -95,7 +88,7 @@ def run(args):
     # Prepare dataloader for focus regions
     data_config = DatasetConfig(
         kind="GeneralDataset",
-        supervised_file=f"{odir}/model_input.csv",
+        supervised_file=f"{odir}/model_input.tsv",
         hdf5_file=files_dict["hdf5_file"],
         batch_size=args.batch_size,
         num_workers=8,
@@ -117,19 +110,10 @@ def run(args):
     # Save embeddings
     np.save(f"{odir}/cell_specific_overlap_region_emb.npy", region_embs)
     
-    # Optionally save as dictionary with region identifiers
-    region_emb_dict = {}
-    for idx, row in overlap_bed.iterrows():
-        region_id = f"{row['chrom']}:{row['start']}-{row['end']}"
-        region_emb_dict[region_id] = region_embs[idx]
-    
-    with open(f"{odir}/cell_specific_region_embs_dict.pkl", "wb") as f:
-        pickle.dump(region_emb_dict, f)
-    
     print("Finished stage 3")
 
     # ---------- Report ----------
-    total_focus = sum(1 for _ in open(focus_region_bed))
+    total_focus = sum(1 for _ in open(focus_region))
     no_overlap_region_len = sum(1 for _ in open(f"{odir}/no_overlap_region.bed"))
     
     print("\nFinished all stages!")
@@ -144,14 +128,13 @@ def run(args):
     print(f"Overlapping regions BED file: {odir}/overlap_region.bed")
     print(f"Non-overlapping regions BED file: {odir}/no_overlap_region.bed")
     print(f"Cell-specific region embeddings saved to: {odir}/cell_specific_overlap_region_emb.npy")
-    print(f"Cell-specific region embeddings dict saved to: {odir}/cell_specific_region_embs_dict.pkl")
 
 
 @click.command(name="embed_cell_region", context_settings={"help_option_names": ["-h", "--help"]})
-@click.option("--region-bed", "region_bed",
+@click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=True, 
-              help="Region BED file to compute embeddings for.")
+              help="Region file to compute embeddings for.")
 @click.option("--cell-type-bw", "cell_type_bw",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=False, 
@@ -190,11 +173,11 @@ def run(args):
               help="ChromBERT region BED file. If not provided, use the default {genome}_{nd}_{resolution}_region.bed in the cache dir.")
 
 
-def embed_cell_region(region_bed, cell_type_bw, cell_type_peak, ft_ckpt, 
+def embed_cell_region(region, cell_type_bw, cell_type_peak, ft_ckpt, 
                       odir, genome, resolution, mode, batch_size, 
                       chrombert_cache_dir, chrombert_region_file):
     args = SimpleNamespace(
-        region_bed=region_bed,
+        region=region,
         cell_type_bw=cell_type_bw,
         cell_type_peak=cell_type_peak,
         ft_ckpt=ft_ckpt,

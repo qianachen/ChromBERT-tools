@@ -12,7 +12,7 @@ import chrombert
 from chrombert import ChromBERTFTConfig, DatasetConfig
 from chrombert.scripts.utils import HDF5Manager
 import pickle
-from .utils import resolve_paths, check_files, overlap_region, chrom_to_int_series, overlap_regulator_func
+from .utils import resolve_paths, check_files, check_region_file, chrom_to_int_series, overlap_regulator_func
 
 
 def run(args):
@@ -32,10 +32,13 @@ def run(args):
         "pretrain_ckpt"
     ])
 
-    overlap_bed = overlap_region(args.region_bed, files_dict["chrombert_region_file"], odir)
+    focus_region = args.region
+    overlap_bed = check_region_file(focus_region,files_dict,odir)
 
     # chromosome mapping to integer
-    overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"], args.genome)
+    first_chrom = str(overlap_bed["chrom"].iloc[0])
+    if "chr" in first_chrom.lower():
+        overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"].astype(str), args.genome)
     overlap_bed = overlap_bed.dropna(subset=["chrom"]).copy()
     overlap_bed["chrom"] = overlap_bed["chrom"].astype(int)
     overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
@@ -113,9 +116,9 @@ def run(args):
     print("Saved regulator embeddings to hdf5 file:", f"{odir}/regulator_emb_on_region.hdf5")
 
 @click.command(name="embed_regulator", context_settings={"help_option_names": ["-h", "--help"]})
-@click.option("--region-bed", "region_bed",
+@click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
-              required=True, help="Region BED file.")
+              required=True, help="Region file.")
 @click.option("--regulator", required=True,
               help="Regulators of interest, e.g. EZH2 or EZH2;BRD4. Use ';' to separate multiple regulators.")
 @click.option("--odir", default="./output", show_default=True,
@@ -132,11 +135,11 @@ def run(args):
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
 
-def embed_regulator(region_bed, regulator, odir, genome, resolution, batch_size, num_workers,
+def embed_regulator(region, regulator, odir, genome, resolution, batch_size, num_workers,
         chrombert_cache_dir):
 
     args = SimpleNamespace(
-        region_bed=region_bed,
+        region=region,
         regulator=regulator,
         odir=odir,
         genome=genome.lower(),

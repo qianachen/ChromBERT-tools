@@ -7,7 +7,7 @@ import chrombert
 from chrombert import ChromBERTFTConfig, DatasetConfig
 import torch
 from tqdm import tqdm
-from .utils import resolve_paths, overlap_region
+from .utils import resolve_paths, check_region_file
 
 def check_files(file_dicts, args):
     """Check that required ChromBERT files exist, and give helpful hints if not."""
@@ -51,7 +51,7 @@ def model_emb_func(args,files_dict,odir):
     # init datamodule
     data_config = DatasetConfig(
         kind = "GeneralDataset",
-        supervised_file = f"{odir}/model_input.csv",
+        supervised_file = f"{odir}/model_input.tsv",
         hdf5_file = files_dict["hdf5_file"],
         batch_size = 4,
         num_workers = 8,
@@ -75,13 +75,15 @@ def run(args):
     odir = args.odir
     os.makedirs(odir, exist_ok=True)
 
-    focus_region_bed = args.region_bed
+    focus_region = args.region
     files_dict = resolve_paths(args)
-    check_files(files_dict, args)
+    check_files(files_dict, required_keys=[
+        "chrombert_region_file",
+        "hdf5_file",
+        "pretrain_ckpt"])
 
     # ---------- overlapping focus regions ----------
-    chrombert_region_bed = files_dict['chrombert_region_file']
-    overlap_bed = overlap_region(focus_region_bed, chrombert_region_bed, odir)
+    overlap_bed = check_region_file(focus_region,files_dict,odir)
     overlap_idx = overlap_bed["build_region_index"].to_numpy()
 
     # ---------- focus region embeddings ----------
@@ -93,7 +95,6 @@ def run(args):
     else:
         print(f"ChromBERT region embedding file not found: {emb_npy_path}, and not directly pick region embedding from cache dir.")
         print("Load model ChromBERT to embed focus regions.")
-        overlap_bed.to_csv(f'{odir}/model_input.csv',index=False)
         ds, dl, model_emb = model_emb_func(args,files_dict,odir)
     
         region_embs = []
@@ -109,7 +110,7 @@ def run(args):
         
 
     # ---------- report ----------
-    total_focus = sum(1 for _ in open(focus_region_bed))
+    total_focus = sum(1 for _ in open(focus_region))
     no_overlap_region_len = sum(1 for _ in open(f"{odir}/no_overlap_region.bed"))
 
     print("Finished!")
@@ -125,9 +126,9 @@ def run(args):
 
 @click.command(name="embed_region",
                context_settings={"help_option_names": ["-h", "--help"]})
-@click.option("--region-bed", "region_bed",
+@click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
-              required=True, help="Region BED file.")
+              required=True, help="Region file.")
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), help="Output directory.")
 @click.option("--genome", default="hg38", show_default=True,
@@ -152,9 +153,9 @@ def run(args):
 
 
 
-def embed_region(region_bed, odir, genome, resolution, chrombert_cache_dir,chrombert_region_file, chrombert_region_emb_file):      
+def embed_region(region, odir, genome, resolution, chrombert_cache_dir,chrombert_region_file, chrombert_region_emb_file):      
     args = SimpleNamespace(
-        region_bed=region_bed,
+        region=region,
         odir=odir,
         genome=genome,
         resolution=resolution,

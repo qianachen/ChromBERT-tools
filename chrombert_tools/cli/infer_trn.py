@@ -16,7 +16,7 @@ import matplotlib.pyplot as plt
 from chrombert import ChromBERTFTConfig, DatasetConfig
 
 from .utils import resolve_paths, check_files
-from .utils import overlap_region, overlap_regulator_func, chrom_to_int_series
+from .utils import check_region_file, overlap_regulator_func, chrom_to_int_series
 
 
 def plot_regulator_subnetwork(G: nx.Graph, target_reg: str, odir: str, k_hop: int, threshold: float, quantile: float):
@@ -106,10 +106,12 @@ def run(args):
     check_files(files_dict, required_keys=required_keys)
 
     # Intersect user regions with ChromBERT regions
-    overlap_bed = overlap_region(args.region_bed, files_dict["chrombert_region_file"], odir)
+    overlap_bed = check_region_file(args.region, files_dict, odir)
 
     # Convert chrom names to integer codes
-    overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"], args.genome)
+    first_chrom = str(overlap_bed["chrom"].iloc[0])
+    if "chr" in first_chrom.lower():
+        overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"].astype(str), args.genome)
     overlap_bed = overlap_bed.dropna(subset=["chrom"]).copy()
     overlap_bed["chrom"] = overlap_bed["chrom"].astype(int)
     overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
@@ -176,7 +178,7 @@ def run(args):
 
 
 @click.command(name="infer_trn", context_settings={"help_option_names": ["-h", "--help"]})
-@click.option("--region-bed", "region_bed",
+@click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=True, help="Region BED file (focus regions).")
 @click.option("--regulator", default=None,
@@ -201,11 +203,11 @@ def run(args):
 @click.option("--k-hop", default=1, show_default=True, type=int,
               help="k-hop radius for subnetwork plotting.")
 
-def infer_trn(region_bed, regulator, odir, genome, resolution,chrombert_cache_dir,
+def infer_trn(region, regulator, odir, genome, resolution,chrombert_cache_dir,
               batch_size, num_workers, quantile, k_hop):
 
     args = SimpleNamespace(
-        region_bed=region_bed,
+        region=region,
         regulator=regulator,
         odir=odir,
         genome=genome.lower(),

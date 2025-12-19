@@ -58,6 +58,9 @@ def resolve_paths(args):
     # chrombert meta file
     meta_file = os.path.join(args.chrombert_cache_dir, "config", f"{args.genome}_{n_d}_meta.json")
     
+    # prompt ckpt
+    prompt_ckpt = os.path.join(args.chrombert_cache_dir, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_prompt_cistrome.ckpt")
+    
     # Override with user-provided paths if available
     chrombert_region_file = getattr(args, "chrombert_region_file", None) or chrombert_region_file
     chrombert_regulator_file = getattr(args, "chrombert_regulator_file", None) or chrombert_regulator_file
@@ -81,6 +84,7 @@ def resolve_paths(args):
         "gene_meta_tsv": gene_meta_tsv,
         "base_ca_signal": base_ca_signal,
         "meta_file": meta_file,
+        "prompt_ckpt": prompt_ckpt,
     }
 
 def check_files(files_dict, required_keys=None):
@@ -107,6 +111,37 @@ def check_files(files_dict, required_keys=None):
         )
         raise FileNotFoundError(msg)
     
+def check_region_file(focus_region,files_dict,odir):
+    """
+    Check if the region file is valid.
+    """
+    if focus_region.endswith(".bed"):
+        overlap_bed = overlap_region(focus_region, files_dict["chrombert_region_file"], odir)
+        if overlap_bed.shape[0] == 0:
+            raise ValueError("No overlap found between your regions and ChromBERT regions.")
+        
+    elif focus_region.endswith(".csv") or focus_region.endswith(".tsv"):
+        df = pd.read_csv(focus_region) if focus_region.endswith(".csv") else pd.read_csv(focus_region, sep="\t")
+        required = ["chrom", "start", "end"]
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            raise ValueError(
+                f"Missing columns in CSV/TSV: {missing}. Required columns: {required}."
+            )
+        if "build_region_index" in df.columns:
+            overlap_bed = df[required + ['build_region_index']].copy()
+            overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
+        else:
+            # write a temp BED and reuse overlap_region
+            tmp_bed = f"{odir}/tmp_focus_regions.bed"
+            df[required].to_csv(tmp_bed, sep="\t", header=False, index=False)
+            overlap_bed = overlap_region(tmp_bed, files_dict["chrombert_region_file"], odir)
+            if overlap_bed.shape[0] == 0:
+                raise ValueError("No overlap found between your regions and ChromBERT regions.")
+    else:
+        raise ValueError(f"Unsupported region file format: {focus_region}. Only .bed, .csv, and .tsv are supported.")
+    return overlap_bed
+
 def overlap_region(region_bed, chrombert_region_file, odir):
     os.makedirs(odir, exist_ok=True)
 

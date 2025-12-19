@@ -13,9 +13,7 @@ from tqdm import tqdm
 import chrombert
 from chrombert import ChromBERTFTConfig, DatasetConfig
 from chrombert.scripts.utils import HDF5Manager
-from .utils import resolve_paths, check_files, overlap_region, chrom_to_int_series, overlap_cistrome_func
-
-
+from .utils import resolve_paths, check_files, check_region_file, chrom_to_int_series, overlap_cistrome_func
 
 def run(args):
     os.makedirs(args.odir, exist_ok=True)
@@ -31,10 +29,13 @@ def run(args):
     ])
 
     # overlap region
-    overlap_bed = overlap_region(args.region_bed, files_dict["chrombert_region_file"], args.odir)
+    focus_region = args.region
+    overlap_bed = check_region_file(focus_region,files_dict,args.odir)
 
     # chromosome mapping to integer
-    overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"], args.genome)
+    first_chrom = str(overlap_bed["chrom"].iloc[0])
+    if "chr" in first_chrom.lower():
+        overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"].astype(str), args.genome)
     overlap_bed = overlap_bed.dropna(subset=["chrom"]).copy()
     overlap_bed["chrom"] = overlap_bed["chrom"].astype(int)
     overlap_bed.to_csv(f"{args.odir}/model_input.tsv", sep="\t", index=False)
@@ -112,9 +113,9 @@ def run(args):
 
 
 @click.command(name="embed_cistrome", context_settings={"help_option_names": ["-h", "--help"]})
-@click.option("--region-bed", "region_bed",
+@click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
-              required=True, help="Region BED file.")
+              required=True, help="Region file.")
 @click.option("--cistrome", required=True,
               help="GSM/ENCODE id or factor:cell, e.g. ENCSR... or GSM... or ATAC-seq:HEK293T or BCL11A:GM12878. Use ';' to separate multiple.")
 @click.option("--odir", default="./output", show_default=True,
@@ -129,11 +130,11 @@ def run(args):
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
 
-def embed_cistrome(region_bed, cistrome, odir, genome, resolution, batch_size, num_workers,
+def embed_cistrome(region, cistrome, odir, genome, resolution, batch_size, num_workers,
         chrombert_cache_dir):
 
     args = SimpleNamespace(
-        region_bed=region_bed,
+        region=region,
         cistrome=cistrome,
         odir=odir,
         genome=genome.lower(),
