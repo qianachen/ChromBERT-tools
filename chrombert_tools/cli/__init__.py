@@ -57,6 +57,7 @@ from . import (
     infer_cell_trn,
     impute_cistrome,
     find_driver_in_dual_region,
+    find_dirver_in_transition,
 )
 
 # Register all subcommands
@@ -72,3 +73,4 @@ cli.add_command(infer_trn.infer_trn)
 cli.add_command(infer_cell_trn.infer_cell_trn)
 cli.add_command(impute_cistrome.impute_cistrome)
 cli.add_command(find_driver_in_dual_region.find_driver_in_dual_region)
+cli.add_command(find_dirver_in_transition.find_driver_in_transition)

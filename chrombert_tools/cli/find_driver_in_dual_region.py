@@ -16,10 +16,9 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from sklearn.metrics.pairwise import cosine_similarity
 
-import chrombert
-from chrombert.scripts.utils import HDF5Manager
 from chrombert.scripts.chrombert_make_dataset import get_overlap
 from chrombert import ChromBERTFTConfig, DatasetConfig
+
 from .utils import resolve_paths, check_files, overlap_regulator_func
 from .utils import split_data, cal_metrics_binary, factor_rank
 from .utils_train_cell import retry_train
@@ -126,6 +125,7 @@ def make_dataset(args, files_dict, d_odir):
 
 
 def generate_emb(emb_odir, data_config, model_tuned):
+    model_tuned = model_tuned.eval()
     model_emb = model_tuned.get_embedding_manager()
     regulators = model_emb.list_regulator
     regulator_idx_dict = {regulator: idx for idx, regulator in enumerate(regulators)}
@@ -241,7 +241,7 @@ def infer_driver_factor_trn(
     )
     dual_regulator_sim_df = factor_rank(embs_pool_func1, embs_pool_func2, regulators, results_odir)
     print("Finished stage 4a: infer driver factors in different regions (top 25):")
-    print(dual_regulator_sim_df.head(n=25))
+    # print(dual_regulator_sim_df.head(n=25))
 
     cos_func1 = cosine_similarity(embs_pool_func1)
     cos_func2 = cosine_similarity(embs_pool_func2)
@@ -333,6 +333,7 @@ def run(args):
             hdf5_file=files_dict["hdf5_file"],
             batch_size=args.batch_size,
             num_workers=8,
+            meta_file=files_dict["meta_file"],
         )
         if ignore:
             data_config.ignore = ignore
@@ -351,7 +352,7 @@ def run(args):
             ignore = ignore,
             ignore_index = ignore_index,
         )
-        model_tuned = model_config.init_model()
+        model_tuned = model_config.init_model().cuda()
         print("Finished stage 2")
     else:
         print("Stage 2: Fine-tuning the model")
@@ -478,6 +479,10 @@ def find_driver_in_dual_region(
     mode,
     chrombert_cache_dir,
 ):
+    """
+    Find driver factors in dual functional regions.
+    
+    """
     args = SimpleNamespace(
         function1_bed=function1_bed,
         function1_mode=str(function1_mode).lower(),
