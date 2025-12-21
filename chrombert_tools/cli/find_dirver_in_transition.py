@@ -190,6 +190,11 @@ def infer_driver_factor(emb_odir, results_odir, data_config, model_tuned,data_od
     nochange_emb, nochange_factors = generate_emb(model_tuned, data_config, f"{data_odir}/nochange.csv", emb_odir, 'nochange', files_dict)
     assert up_factors == nochange_factors, "up and nochange factors are not the same"
     regulator_sim_df = factor_rank(up_emb, nochange_emb, up_factors, results_odir)
+    if os.path.exists(files_dict["chrombert_factor_file"]):
+        with open(files_dict["chrombert_factor_file"],"r") as f:
+            factors = f.read().strip().split("\n")
+            factors = [f.strip().lower() for f in factors]
+            regulator_sim_df = regulator_sim_df.query("factors in @factors").sort_values(by='similarity').reset_index(drop=True)
     regulator_sim_df['rank']=regulator_sim_df.index + 1
     regulator_sim_df.to_csv(os.path.join(results_odir, "factor_importance_rank.csv"), index=False)
     print(f"Finished stage 4 {source}: infer driver factors in cell state transition (top 25):")
@@ -254,7 +259,7 @@ def run(args):
             print("Finished Stage 2 (exp): use fine-tuned ChromBERT to find driver factors in different expression activity genes")
         else:
             print("Stage 2 (exp): train ChromBERT to predict expression changes in cell state transition")
-            model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pcc', min_threshold=0.2, train_kind = 'regression', task="gep",odir=exp_odir)
+            model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.2, train_kind = 'regression', task="gep",odir=exp_odir)
             print("Finished stage 2 (exp): train ChromBERT to predict expression changes in cell state transition")
 
         # 4. infer driver factor in different expression activity genes
@@ -289,7 +294,7 @@ def run(args):
             print("Finished Stage 2 (acc): use fine-tuned ChromBERT to find driver factors in different chromatin accessibility activity genes")
         else:
             print("Stage 2 (acc): train ChromBERT to predict chromatin accessibility changes in cell state transition")
-            model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pcc', min_threshold=0.2, train_kind = 'regression', task="general",odir=acc_odir)
+            model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.2, train_kind = 'regression', task="general",odir=acc_odir)
             print("Finished stage 2 (acc): train ChromBERT to predict chromatin accessibility changes in cell state transition")
 
         # 4. infer driver factor in different chromatin accessibility activity genes
