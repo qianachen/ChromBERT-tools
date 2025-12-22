@@ -135,7 +135,7 @@ Embedding Outputs
 
    .. code-block:: python
 
-      import python
+      import h5py
       # if you specify cistrome: "CTCF:K562;H3K27ac:K562;GSM1208591", you can get the embeddings by:
       with h5py.File('cell_specific_cistrome_emb_on_region.hdf5', 'r') as f:
           emb1 = f['/emb/ctcf:k562'][:]
