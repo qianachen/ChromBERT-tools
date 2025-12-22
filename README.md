@@ -51,6 +51,14 @@ To verify the installation, execute the following command:
 chrombert-tools
 ```
 
+## Usage
+
+ChromBERT-tools supports two ways to run:
+
+1. **Command-line interface (CLI)** — run from a terminal (bash commands)
+2. **Python API** — call functions in Python code
+
+
 ## ChromBERT-tools CLI
 For detailed usage, please check the documentation: [chrombert-tools.readthedocs.io](https://chrombert-tools.readthedocs.io/en/latest/).
 
@@ -74,3 +82,28 @@ For detailed usage, please check the documentation: [chrombert-tools.readthedocs
 ### Driver analysis
 - [find_driver_in_dual_region](https://chrombert-tools.readthedocs.io/en/latest/commands/find_driver_in_dual_region.html): Find driver factors in dual-functional regions  
 - [find_driver_in_transition](https://chrombert-tools.readthedocs.io/en/latest/commands/find_driver_in_transition.html): Find driver factors in cell-state transitions  
+
+
+### Python API
+
+In addition to CLI commands, you can now call ChromBERT-tools directly in Python, Currently supports tasks that do not require fine-tuning:
+
+```python
+from chrombert_tools import embed_gene, embed_region, embed_cistrome, embed_regulator, infer_trn, impute_cistrome
+```
+
+For detailed examples with full documentation, see the Jupyter notebooks in the `examples/` directory:
+
+- **[embed_api.ipynb](examples/embed_api.ipynb)** - Complete examples for:
+  - `embed_gene()` - Gene embeddings from gene symbols/IDs
+  - `embed_region()` - Region embeddings from BED files
+  - `embed_cistrome()` - Cistrome embeddings on specific regions
+  - `embed_regulator()` - Regulator embeddings on specific regions
+
+- **[infer_trn_api.ipynb](examples/infer_trn_api.ipynb)** - TRN inference example:
+  - `infer_trn()` - Infer transcriptional regulatory networks on specific regions
+
+- **[cistrome_imputation_api.ipynb](examples/cistrome_imputation_api.ipynb)** - Cistrome imputation example:
+  - `impute_cistrome()` - Impute cistrome peak probabilities on genomic regions
+
+
