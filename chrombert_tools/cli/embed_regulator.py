@@ -149,7 +149,7 @@ def run(args, return_data=False):
 @click.option("--num-workers", default=8, show_default=True, type=int, help="Dataloader workers.")
 
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser("~/.cache/chrombert/data"),
+              default="~/.cache/chrombert/data",
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
 

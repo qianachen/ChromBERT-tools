@@ -156,9 +156,13 @@ def run(args):
     print(
         f"Gene count summary - requested: {len(focus_genes)}, "
         f"matched: {len(overlap_genes)}, "
-        f"not found: {len(not_found_genes)}"
+        f"not found: {len(not_found_genes)}, "
+        f"not found gene names: {not_found_genes}"
     )
-    print(f"Cell-specific ChromBERT model saved to: {train_odir}")
+    if args.ft_ckpt is not None:
+        print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt}")
+    else:
+        print(f"Cell-specific ChromBERT model saved to: {train_odir}")
     print(f"Cell-specific gene embeddings saved to: {odir}/cell_specific_gene_embs_dict.pkl")
     print(f"Matched gene meta saved to: {odir}/overlap_genes_meta.tsv")
 
@@ -191,7 +195,7 @@ def run(args):
 @click.option("--batch-size", "batch_size", default=4, show_default=True, type=int,
               help="Batch size.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser("~/.cache/chrombert/data"),
+              default="~/.cache/chrombert/data",
               show_default=True,
               type=click.Path(file_okay=False),
               help="ChromBERT cache dir. If you use `chrombert_prepare_env`, you usually don't need to provide this.")

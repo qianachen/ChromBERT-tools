@@ -122,7 +122,9 @@ def run(args):
         f"non-overlapping: {no_overlap_region_len}"
     )
     print("Note: It is possible for a single region to overlap multiple ChromBERT regions.")
-    if train_odir is not None:
+    if args.ft_ckpt is not None:
+        print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt}")
+    else:
         print(f"Cell-specific ChromBERT model saved to: {train_odir}")
     print(f"Overlapping regions BED file: {odir}/overlap_region.bed")
     print(f"Non-overlapping regions BED file: {odir}/no_overlap_region.bed")
@@ -162,7 +164,7 @@ def run(args):
 @click.option("--batch-size", "batch_size", default=4, show_default=True, type=int,
               help="Batch size.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser("~/.cache/chrombert/data"),
+              default="~/.cache/chrombert/data",
               show_default=True,
               type=click.Path(file_okay=False),
               help="ChromBERT cache dir. If you use `chrombert_prepare_env`, you usually don't need to provide this.")

@@ -193,10 +193,10 @@ def run(args,return_data=False):
               help="Resolution. Mouse only supports 1kb resolution.")
 
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser("~/.cache/chrombert/data"),
+              default="~/.cache/chrombert/data",
               show_default=True,
               type=click.Path(file_okay=False),
-              help="ChromBERT cache dir. If you use `chrombert_prepare_env`, you usually don't need to provide this.")
+              help="ChromBERT cache dir. ")
 
 @click.option("--chrombert-region-file", "chrombert_region_file",
               default=None,

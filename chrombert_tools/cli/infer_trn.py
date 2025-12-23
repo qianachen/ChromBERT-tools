@@ -48,6 +48,7 @@ def plot_regulator_subnetwork(G: nx.Graph, target_reg: str, odir: str, k_hop: in
     plt.title(f"{target_reg} subnetwork (k={k_hop}, thr={threshold:.3f}, q={quantile:.3f})")
     plt.tight_layout()
     plt.savefig(f"{odir}/subnetwork_{target_reg}_k{k_hop}.pdf")
+    print(f"Regulator subnetwork saved to: {odir}/subnetwork_{target_reg}_k{k_hop}.pdf")
     
     if not return_fig:
         plt.close()
@@ -179,6 +180,8 @@ def run(args, return_data=False):
 
     print("Finished!")
     print("Saved outputs to:", odir)
+    print(f"Regulator cosine similarity saved to: {odir}/regulator_cosine_similarity.tsv")
+    print(f"Total graph edges saved to: {odir}/total_graph_edge_threshold{threshold:.3f}_quantile{args.quantile:.3f}.tsv")
     if return_data:
         return df_edges
 
@@ -197,7 +200,7 @@ def run(args, return_data=False):
 @click.option("--resolution", default="1kb", show_default=True,
               type=click.Choice(["1kb", "200bp", "2kb", "4kb"], case_sensitive=False), help="Resolution.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser("~/.cache/chrombert/data"),
+              default="~/.cache/chrombert/data",
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ and checkpoint/ etc).")
 @click.option("--batch-size", default=64, show_default=True, type=int,

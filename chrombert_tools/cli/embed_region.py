@@ -103,10 +103,10 @@ def run(args, return_data=False):
               type=click.Choice(["1kb", "200bp", "2kb", "4kb"], case_sensitive=False), help="Resolution. Mouse only supports 1kb resolution.")
 
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser("~/.cache/chrombert/data"),
+              default="~/.cache/chrombert/data",
               show_default=True,
               type=click.Path(file_okay=False),
-              help="ChromBERT cache dir. Default is ~/.cache/chrombert/data. if you use command `chrombert_prepare_env` to download the data, you don't need to provide this.")
+              help="ChromBERT cache dir. ")
 
 @click.option("--chrombert-region-file", "chrombert_region_file",
               default=None,

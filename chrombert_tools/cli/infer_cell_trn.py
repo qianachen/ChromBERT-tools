@@ -195,10 +195,13 @@ def run(args):
     print("Finished stage 5")
 
     print("Finished all stages!")
-    print(f"You get a cell-specific chrombert in {train_odir} or your provided {args.ft_ckpt}")
-    print(f"You can get the most important regulators for this cell type in {results_odir}/factor_importance_rank.csv")
-    print(f"You can get the trn edge list for this cell type in {results_odir}/total_graph_edge_threshold*_quantile*.tsv")
-    print(f"You can get the subnetwork for each top25 regulator in {results_odir}/subnetwork_*.pdf")
+    if args.ft_ckpt is not None:
+        print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt}")
+    else:
+        print(f"Cell-specific ChromBERT model saved to: {train_odir}")
+    print(f"Key regulators for this cell type saved to: {results_odir}/factor_importance_rank.csv")
+    print(f"TRN edge list for this cell type saved to: {results_odir}/total_graph_edge_threshold*_quantile*.tsv")
+    print(f"Subnetwork for each top 25 regulator saved to: {results_odir}/subnetwork_*.pdf")
 
 
 @click.command(name="infer_cell_trn", context_settings={"help_option_names": ["-h", "--help"]})
@@ -226,7 +229,7 @@ def run(args):
 @click.option("--batch-size", "batch_size", default=4, show_default=True, type=int,
               help="Batch size.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser("~/.cache/chrombert/data"),
+              default="~/.cache/chrombert/data",
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache directory (contains config/ anno/ checkpoint/ etc).")
 @click.option("--quantile", default=0.99, show_default=True, type=float,

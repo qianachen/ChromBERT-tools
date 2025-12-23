@@ -27,39 +27,39 @@ def resolve_paths(args):
       - optional overrides: --chrombert-xxx-file
     """
     n_d = _nd_from_genome(args.genome)
-
+    cache_path = os.path.expanduser(args.chrombert_cache_dir)
     # region bed
-    chrombert_region_file = os.path.join(args.chrombert_cache_dir, f"config/{args.genome}_{n_d}_{args.resolution}_region.bed")
+    chrombert_region_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_{args.resolution}_region.bed")
 
     # regulator file
-    chrombert_regulator_file = os.path.join(args.chrombert_cache_dir, f"config/{args.genome}_{n_d}_regulators_list.txt")
+    chrombert_regulator_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_regulators_list.txt")
     
     # factor file
-    chrombert_factor_file = os.path.join(args.chrombert_cache_dir, f"config/{args.genome}_{n_d}_factors_list.txt")
+    chrombert_factor_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_factors_list.txt")
 
     # hdf5
-    hdf5_file = os.path.join(args.chrombert_cache_dir, f"{args.genome}_{n_d}_{args.resolution}.hdf5")
+    hdf5_file = os.path.join(cache_path, f"{args.genome}_{n_d}_{args.resolution}.hdf5")
     
     # ckpt
-    pretrain_ckpt = os.path.join(args.chrombert_cache_dir, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_pretrain.ckpt")
+    pretrain_ckpt = os.path.join(cache_path, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_pretrain.ckpt")
     
     # mask matrix
-    mtx_mask = os.path.join(args.chrombert_cache_dir, "config", f"{args.genome}_{n_d}_mask_matrix.tsv")
+    mtx_mask = os.path.join(cache_path, "config", f"{args.genome}_{n_d}_mask_matrix.tsv")
     
     # region embedding file
-    region_emb_file = os.path.join(args.chrombert_cache_dir, f"anno/{args.genome}_{args.resolution}_region_emb.npy")
+    region_emb_file = os.path.join(cache_path, f"anno/{args.genome}_{args.resolution}_region_emb.npy")
     
     # chrombert_gene_meta
-    gene_meta_tsv = os.path.join(args.chrombert_cache_dir, f"anno/{args.genome}_{args.resolution}_gene_meta.tsv")
+    gene_meta_tsv = os.path.join(cache_path, f"anno/{args.genome}_{args.resolution}_gene_meta.tsv")
     
     # chrombert base chromatin accessibility signal
-    base_ca_signal = os.path.join(args.chrombert_cache_dir, "anno", f"{args.genome}_{args.resolution}_accessibility_signal_mean.npy")
+    base_ca_signal = os.path.join(cache_path, "anno", f"{args.genome}_{args.resolution}_accessibility_signal_mean.npy")
     
     # chrombert meta file
-    meta_file = os.path.join(args.chrombert_cache_dir, "config", f"{args.genome}_{n_d}_meta.json")
+    meta_file = os.path.join(cache_path, "config", f"{args.genome}_{n_d}_meta.json")
     
     # prompt ckpt
-    prompt_ckpt = os.path.join(args.chrombert_cache_dir, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_prompt_cistrome.ckpt")
+    prompt_ckpt = os.path.join(cache_path, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_prompt_cistrome.ckpt")
     
     # Override with user-provided paths if available
     chrombert_region_file = getattr(args, "chrombert_region_file", None) or chrombert_region_file
@@ -203,6 +203,7 @@ def overlap_regulator_func(regulator: str, chrombert_regulator_file: str):
         f"not found: {len(not_overlap_regulator)}, "
         f"not found regulator: {not_overlap_regulator}"
     )
+    print(f"ChromBERT regulators: {chrombert_regulator_file}")
     return overlap_regulator, not_overlap_regulator, regulator_dict
 
 
@@ -239,6 +240,7 @@ def overlap_cistrome_func(cistrome: str, chrombert_meta_file: str):
         f"not found: {len(not_overlap)}, "
         f"not found cistromes: {not_overlap}"
     )
+    print(f"ChromBERT cistromes metas: {chrombert_meta_file.replace('.json', '.tsv')}")
     return overlap, not_overlap, cistrome_gsmid_dict
 
 def overlap_gene_map_region(gene_meta, focus_genes, odir):

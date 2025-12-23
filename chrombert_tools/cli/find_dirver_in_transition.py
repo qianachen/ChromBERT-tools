@@ -29,7 +29,7 @@ from .utils_train_cell import retry_train
         
 def make_exp_dataset(args, files_dict,exp_d_odir):
     gene_meta = pd.read_csv(files_dict['gene_meta_tsv'],sep='\t').query("gene_biotype == 'protein_coding'")[['chrom','start','end','build_region_index','gene_id','tss']]
-    print(f"protein code genes have {len(gene_meta)}")
+    # print(f"protein code genes have {len(gene_meta)}")
     
     if args.exp_tpm1 is not None and args.exp_tpm2 is not None:
         if os.path.exists(f'{exp_d_odir}/total.csv'):
@@ -259,7 +259,7 @@ def run(args):
             print("Finished Stage 2 (exp): use fine-tuned ChromBERT to find driver factors in different expression activity genes")
         else:
             print("Stage 2 (exp): train ChromBERT to predict expression changes in cell state transition")
-            model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.2, train_kind = 'regression', task="gep",odir=exp_odir)
+            model_tuned, exp_train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.2, train_kind = 'regression', task="gep",odir=exp_odir)
             print("Finished stage 2 (exp): train ChromBERT to predict expression changes in cell state transition")
 
         # 4. infer driver factor in different expression activity genes
@@ -294,7 +294,7 @@ def run(args):
             print("Finished Stage 2 (acc): use fine-tuned ChromBERT to find driver factors in different chromatin accessibility activity genes")
         else:
             print("Stage 2 (acc): train ChromBERT to predict chromatin accessibility changes in cell state transition")
-            model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.2, train_kind = 'regression', task="general",odir=acc_odir)
+            model_tuned, acc_train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.2, train_kind = 'regression', task="general",odir=acc_odir)
             print("Finished stage 2 (acc): train ChromBERT to predict chromatin accessibility changes in cell state transition")
 
         # 4. infer driver factor in different chromatin accessibility activity genes
@@ -303,7 +303,38 @@ def run(args):
         acc_results_odir = f"{acc_odir}/results"; os.makedirs(acc_results_odir, exist_ok=True)
         infer_driver_factor(acc_emb_odir, acc_results_odir, data_config, model_tuned, acc_data_odir, files_dict, "acc")
         print("Finished stage 3 (acc)")
-
+        
+    if acc_bool and exp_bool:
+        merge_odir = os.path.join(odir, "merge"); os.makedirs(merge_odir, exist_ok=True)
+        print("Merging factor ranks from expression and chromatin accessibility")
+        exp_rank_df = pd.read_csv(os.path.join(exp_results_odir, "factor_importance_rank.csv"))
+        acc_rank_df = pd.read_csv(os.path.join(acc_results_odir, "factor_importance_rank.csv"))
+        merge_df = pd.merge(exp_rank_df,acc_rank_df,on='factors',how='inner',suffix=['_exp','_acc'])
+        merge_df['total_rank']=((merge_df['rank_exp']+merge_df['rank_acc'])/2).rank().astype(int)
+        merge_df = merge_df.sort_values('total_rank').reset_index(drop=True)
+        merge_df.to_csv(os.path.join(merge_odir, "factor_importance_rank.csv"), index=False)
+        print("Finished merging factor ranks from expression and chromatin accessibility")
+        print("Top 25 driver factors:")
+        print(merge_df.head(n=25))
+    
+    print("Finished all stages!")
+    
+    if exp_bool:
+        if hasattr(args, 'ft_ckpt_exp') and args.ft_ckpt_exp:
+            print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt_exp}")
+        else:
+            print(f"Fine-tuned ChromBERT model (for expression changes) saved in: {exp_train_odir}")
+        print(f"Driver factors for expression changes: {exp_results_odir}/factor_importance_rank.csv")
+        
+    if acc_bool:
+        if hasattr(args, 'ft_ckpt_acc') and args.ft_ckpt_acc:
+            print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt_acc}")
+        else:
+            print(f"Fine-tuned ChromBERT model (for accessibility changes) saved in: {acc_train_odir}")
+        print(f"Driver factors for chromatin accessibility changes: {acc_results_odir}/factor_importance_rank.csv")
+        
+    if acc_bool and exp_bool:
+        print(f"Integrated driver factor rankings: {merge_odir}/factor_importance_rank.csv")
 
 @click.command(
     name="find_driver_in_transition",
@@ -403,7 +434,7 @@ def run(args):
 @click.option(
     "--chrombert-cache-dir",
     "chrombert_cache_dir",
-    default=os.path.expanduser("~/.cache/chrombert/data"),
+    default="~/.cache/chrombert/data",
     show_default=True,
     type=click.Path(file_okay=False),
     help="ChromBERT cache directory (containing config/ and anno/ subfolders).",

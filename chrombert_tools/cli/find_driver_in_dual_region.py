@@ -225,8 +225,8 @@ def plot_dual_trn(
     _node_order = get_node_order(G, "group", "value")
     annotate.circos_labels(G, group_by="group", sort_by="value", layout="rotate")
     plt.tight_layout()
-    plt.savefig(f"{results_odir}/dual_regulator_subnetwork.pdf")
-    print(f"Dual regulator subnetwork plot saved: {results_odir}/dual_regulator_subnetwork.pdf")
+    plt.savefig(f"{results_odir}/dual_regulator_{dual_regulator}_subnetwork.pdf")
+    print(f"Dual regulator subnetwork plot saved: {results_odir}/dual_regulator_{dual_regulator}_subnetwork.pdf")
     print("Yellow color represents function1 subnetwork; blue color represents function2 subnetwork.")
 
 
@@ -249,11 +249,10 @@ def infer_driver_factor_trn(
     df_cos_func2 = pd.DataFrame(cos_func2, columns=regulators, index=regulators)
 
     df_cos_func1.to_csv(
-        os.path.join(results_odir, "regulator_cosine_similarity_on_function1_regions.csv"), index=False
+        os.path.join(results_odir, "regulator_cosine_similarity_on_function1_regions.csv")
     )
     df_cos_func2.to_csv(
-        os.path.join(results_odir, "regulator_cosine_similarity_on_function2_regions.csv"), index=False
-    )
+        os.path.join(results_odir, "regulator_cosine_similarity_on_function2_regions.csv"))
 
     if dual_regulators is not None:
         thre_func1 = np.percentile(cos_func1.flatten(), 95)
@@ -364,6 +363,13 @@ def run(args):
     print("Stage 4: infer driver factors in different regions")
     infer_driver_factor_trn(args,overlap_dual_regulator, data_config, model_tuned)
     print("Finished stage 4")
+    print("Finished all stages!")
+    if args.ft_ckpt is not None:
+        print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt}")
+    else:
+        print(f"Fine-tuned ChromBERT saved in {train_odir}")
+    print(f"Key regulators for classifying function 1 and function 2 regions: {args.odir}/results/factor_importance_rank.csv")
+    print(f"Dual-functional regulator subnetwork: {args.odir}/results/dual_regulator_*_subnetwork.pdf (if --dual-regulator was provided)")
 
 
 @click.command(

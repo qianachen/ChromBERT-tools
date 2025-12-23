@@ -213,7 +213,7 @@ def run(args, return_data=False):
 @click.option("--batch-size", "batch_size", default=4, show_default=True, type=int,
               help="Batch size. if you have enough GPU memory, you can set it to a larger value.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser('~/.cache/chrombert/data'),
+              default='~/.cache/chrombert/data',
               show_default=True,
               type=click.Path(file_okay=False),
               help="ChromBERT cache directory (containing config/ and anno/ subfolders).")

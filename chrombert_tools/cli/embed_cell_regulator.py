@@ -170,7 +170,9 @@ def run(args):
 
     # ---------- Report ----------
     print("\nFinished all stages!")
-    if train_odir is not None:
+    if args.ft_ckpt is not None:
+        print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt}")
+    else:
         print(f"Cell-specific ChromBERT model saved to: {train_odir}")
     print(f"Cell-specific mean regulator embeddings saved to: {out_pkl}")
     print(f"Cell-specific regulator embeddings on regions saved to: {out_h5}")
@@ -214,7 +216,7 @@ def run(args):
 @click.option("--num-workers", "num_workers", default=8, show_default=True, type=int,
               help="Dataloader workers.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
-              default=os.path.expanduser("~/.cache/chrombert/data"),
+              default="~/.cache/chrombert/data",
               show_default=True,
               type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
