@@ -172,6 +172,22 @@ Accessibility Analysis
    * ``up_regulator_embs_dict.pkl``: Regulator embeddings on up regions
    * ``nochange_regulator_embs_dict.pkl``: Regulator embeddings on no-change regions
 
+Merge Expression and Accessibility Analysis
+-------------------------------------------
+
+``merge/``
+
+   * ``factor_importance_rank.csv``: Driver factors for expression and chromatin accessibility changes (columns: factors, similarity_exp, rank_exp, similarity_acc, rank_acc, total_rank). If expression and accessibility are provided, the tool will merge the results and calculate the total rank.
+
+     **Columns:**
+     
+     - ``factors``: Transcription factor names
+     - ``similarity_exp``: Cosine similarity from expression analysis
+     - ``rank_exp``: Ranking from expression analysis
+     - ``similarity_acc``: Cosine similarity from accessibility analysis
+     - ``rank_acc``: Ranking from accessibility analysis
+     - ``total_rank``: Final integrated ranking
+
 Tips
 ====
 
