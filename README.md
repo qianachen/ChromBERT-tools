@@ -1,9 +1,9 @@
 # ChromBERT-tools: Command-line tools for ChromBERT-based regulatory analysis
+**ChromBERT-tools v1.0 will be released on December 26, 2025**
 
 > **ChromBERT** is a pre-trained deep learning model designed to capture genome-wide co-association patterns of ~1,000 transcription regulators and to learn context-specific transcriptional regulatory networks (TRNs) [ChromBERT](https://github.com/TongjiZhanglab/ChromBERT).  
 > **ChromBERT-tools** is a lightweight GitHub toolkit that exposes core ChromBERT functionality through easy-to-use command-line tools (CLI).
 
-**ChromBERT-tools v1.0 will be released on December 26, 2025**
 
 ---
 
@@ -96,4 +96,6 @@ from chrombert_tools import embed_gene, embed_region, embed_cistrome, embed_regu
 
 For detailed usage examples, see the Jupyter notebooks in [`examples/api/`](examples/api/).
 
+## Contact us
+If you have any questions or suggestions, please feel free to contact us at [2211083@tongji.edu.cn](mailto:2211083@tongji.edu.cn).
 
