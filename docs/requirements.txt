@@ -4,3 +4,4 @@ nbsphinx
 nbsphinx-link
 recommonmark
 lumache
+nbconvert

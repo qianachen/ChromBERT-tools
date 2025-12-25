@@ -17,7 +17,7 @@ ChromBERT-tools CLI
 ---------------------
 
 General (pre-trained)
-^^^^^^^^^^^^^^^^^^^^
+^^^^^^^^^^^^^^^^^^^^^
 
 * :doc:`commands/embed_cistrome`: Extract cistrome embeddings for specified regions
 * :doc:`commands/embed_gene`: Extract gene embeddings
