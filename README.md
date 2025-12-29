@@ -1,5 +1,4 @@
 # ChromBERT-tools: a toolkit for ChromBERT-based regulatory analysis
-**ChromBERT-tools v1.0 will be released on December 26, 2025**
 
 > **ChromBERT** is a pre-trained deep learning model designed to capture genome-wide co-association patterns of ~1,000 transcription regulators and to learn context-specific transcriptional regulatory networks (TRNs) [ChromBERT](https://github.com/TongjiZhanglab/ChromBERT).  
 > **ChromBERT-tools** is a lightweight GitHub toolkit that provides easy-to-use command-line interfaces (CLIs) and Python APIs for core ChromBERT workflows.
