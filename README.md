@@ -1,14 +1,14 @@
-# ChromBERT-tools: Command-line tools for ChromBERT-based regulatory analysis
+# ChromBERT-tools: a toolkit for ChromBERT-based regulatory analysis
 **ChromBERT-tools v1.0 will be released on December 26, 2025**
 
 > **ChromBERT** is a pre-trained deep learning model designed to capture genome-wide co-association patterns of ~1,000 transcription regulators and to learn context-specific transcriptional regulatory networks (TRNs) [ChromBERT](https://github.com/TongjiZhanglab/ChromBERT).  
-> **ChromBERT-tools** is a lightweight GitHub toolkit that exposes core ChromBERT functionality through easy-to-use command-line tools (CLI).
+> **ChromBERT-tools** is a lightweight GitHub toolkit that provides easy-to-use command-line interfaces (CLIs) and Python APIs for core ChromBERT workflows.
 
 
 ---
 
 ## Installation
-ChromBERT-tools is a lightweight GitHub toolkit that exposes core ChromBERT functionality through easy-to-use command-line tools (CLI). You need to install the ChromBERT environment including ChromBERT dependencies and datasets.
+ChromBERT-tools is a lightweight GitHub toolkit that exposes core ChromBERT functionality. You need to install the ChromBERT environment including ChromBERT dependencies and datasets.
 
 ### Installing ChromBERT Dependencies
 If you have already installed ChromBERT dependencies, you can skip this step and proceed to [Installing ChromBERT-tools](#installing-chrombert-tools).
