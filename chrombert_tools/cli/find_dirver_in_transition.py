@@ -413,8 +413,8 @@ def run(args):
     "--mode",
     default="fast",
     show_default=True,
-    type=click.Choice(["fast", "normal"], case_sensitive=False),
-    help="Training mode: 'fast' downsamples to 20k regions for quicker training; 'normal' uses all regions.",
+    type=click.Choice(["fast", "full"], case_sensitive=False),
+    help="Training mode: 'fast' downsamples to 20k regions for quicker training; 'full' uses all regions.",
 )
 @click.option(
     "--ft-ckpt-exp",

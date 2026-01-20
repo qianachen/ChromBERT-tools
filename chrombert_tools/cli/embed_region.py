@@ -53,8 +53,8 @@ def run(args, return_data=False):
     emb_npy_path = files_dict["region_emb_npy"]
     if os.path.exists(emb_npy_path):
         all_emb = np.load(emb_npy_path)
-        overlap_emb = all_emb[overlap_idx]
-        np.save(f"{odir}/overlap_region_emb.npy", overlap_emb)
+        region_embs = all_emb[overlap_idx]
+        np.save(f"{odir}/overlap_region_emb.npy", region_embs)
     else:
         print(f"ChromBERT region embedding file not found: {emb_npy_path}, and not directly pick region embedding from cache dir.")
         print("Load model ChromBERT to embed focus regions.")
@@ -87,7 +87,7 @@ def run(args, return_data=False):
     print("Overlapping focus region embeddings saved to:", f"{odir}/overlap_region_emb.npy")
     
     if return_data:
-        return overlap_emb, overlap_bed
+        return region_embs, overlap_bed
 
 
 @click.command(name="embed_region",

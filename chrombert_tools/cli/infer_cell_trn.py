@@ -233,7 +233,7 @@ def run(args):
               default="~/.cache/chrombert/data",
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache directory (contains config/ anno/ checkpoint/ etc).")
-@click.option("--quantile", default=0.99, show_default=True, type=float,
+@click.option("--quantile", default=0.98, show_default=True, type=float,
               help="Quantile threshold for cosine similarity.")
 @click.option("--k-hop", "k_hop", default=1, show_default=True, type=int,
               help="k-hop for subnetwork (currently subnetwork plot uses k_hop=1 as in file1).")

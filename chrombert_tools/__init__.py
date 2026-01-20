@@ -13,7 +13,7 @@ from .api.embed_region import embed_region
 from .api.embed_regulator import embed_regulator
 from .api.impute_cistrome import impute_cistrome
 from .api.infer_trn import infer_trn
-
+from .api.infer_ep import infer_ep
 
 __all__ = [
     "__version__",
@@ -23,4 +23,5 @@ __all__ = [
     "embed_regulator",
     "impute_cistrome",
     "infer_trn",
+    "infer_ep",
 ]

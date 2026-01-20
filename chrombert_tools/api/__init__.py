@@ -9,13 +9,14 @@ from .embed_region import embed_region
 from .embed_regulator import embed_regulator
 from .impute_cistrome import impute_cistrome
 from .infer_trn import infer_trn
-
+from .infer_ep import infer_ep
 __all__ = [
     "embed_gene",
     "embed_cistrome",
     "embed_region",
     "embed_regulator",
     "impute_cistrome",
+    "infer_ep",
     "infer_trn",
 ]
 
