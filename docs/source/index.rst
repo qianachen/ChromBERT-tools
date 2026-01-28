@@ -3,12 +3,12 @@ Welcome to ChromBERT-tools Documentation!
 
 **ChromBERT** is a pre-trained deep learning model designed to capture genome-wide co-association patterns of ~1,000 transcription regulators and to learn context-specific transcriptional regulatory networks (TRNs).
 
-**ChromBERT-tools** is a lightweight toolkit that exposes core ChromBERT functionality through easy-to-use command-line tools (CLI).
+**ChromBERT-tools** is a lightweight toolkit designed to generate and interpret regulation-informed embeddings derived from ChromBERT, providing user-friendly command-line interfaces (CLIs) and Python APIs.
 
 Features
 --------
 
-* **Easy-to-use CLI**: Simple command-line interface for common ChromBERT tasks
+* **Easy-to-use CLI**: Simple command-line interface
 * **Flexible**: Works with hg38 (human) and mm10 (mouse) genomes, and different resolutions
 * **Comprehensive**: Tools for embedding, imputation, inference, and driver factor analysis
 * **Cell-specific**: Support for cell-type specific analysis
@@ -19,14 +19,14 @@ ChromBERT-tools CLI
 Generation of regulation-informed embeddings
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-* :doc:`commands/embed_cistrome`: Extract cistrome embeddings for specified regions
-* :doc:`commands/embed_gene`: Extract gene embeddings
-* :doc:`commands/embed_region`: Extract region embeddings for specified regions
-* :doc:`commands/embed_regulator`: Extract regulator embeddings for specified regions
-* :doc:`commands/embed_cell_cistrome`: Extract cell-type-specific cistrome embeddings for specified regions
-* :doc:`commands/embed_cell_gene`: Extract cell-type-specific gene embeddings
-* :doc:`commands/embed_cell_region`: Extract cell-type-specific region embeddings for specified regions
-* :doc:`commands/embed_cell_regulator`: Extract cell-type-specific regulator embeddings for specified regions
+* :doc:`commands/embed_cistrome`: Generate cistrome embeddings for specified regions
+* :doc:`commands/embed_gene`: Generate gene embeddings
+* :doc:`commands/embed_region`: Generate region embeddings for specified regions
+* :doc:`commands/embed_regulator`: Generate regulator embeddings for specified regions
+* :doc:`commands/embed_cell_cistrome`: Generate cell-type-specific cistrome embeddings for specified regions
+* :doc:`commands/embed_cell_gene`: Generate cell-type-specific gene embeddings
+* :doc:`commands/embed_cell_region`: Generate cell-type-specific region embeddings for specified regions
+* :doc:`commands/embed_cell_regulator`: Generate cell-type-specific regulator embeddings for specified regions
 
 
 Interpretation of regulation-informed embeddings

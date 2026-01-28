@@ -1,7 +1,7 @@
 # ChromBERT-tools: a toolkit for ChromBERT-based regulatory analysis
 
 > **ChromBERT** is a pre-trained deep learning model designed to capture genome-wide co-association patterns of ~1,000 transcription regulators and to learn context-specific transcriptional regulatory networks (TRNs) [ChromBERT](https://github.com/TongjiZhanglab/ChromBERT).  
-> **ChromBERT-tools** is a lightweight GitHub toolkit that provides easy-to-use command-line interfaces (CLIs) and Python APIs for core ChromBERT workflows.
+> **ChromBERT-tools** is a lightweight toolkit designed to generate and interpret regulation-informed embeddings derived from ChromBERT, providing user-friendly command-line interfaces (CLIs) and Python APIs.
 
 
 ---
@@ -83,10 +83,10 @@ For detailed usage examples, see the Jupyter notebooks in [`examples/cli/`](exam
 
 
 ### Interpretation of regulation-informed embeddings
-- [infer_ep](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_ep.html): Infer enhancer-promoter interactions on specified regions
+- [infer_ep](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_ep.html): Infer enhancer-promoter loops
 - [infer_regulator_network](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_regulator_network.html): Infer regulator-regulator networks on specified regions  
 - [impute_cistrome](https://chrombert-tools.readthedocs.io/en/latest/commands/impute_cistrome.html): Impute cistrome data on specified regions 
-- [infer_cell_key_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_cell_key_regulator.html): Infer cell-type-specific key regulators on specified regions
+- [infer_cell_key_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_cell_key_regulator.html): Infer cell-type-specific key regulators
 - [find_driver_in_transition](https://chrombert-tools.readthedocs.io/en/latest/commands/find_driver_in_transition.html): Find driver factors in cell-state transitions
 - [find_context_specific_cofactor](https://chrombert-tools.readthedocs.io/en/latest/commands/find_context_specific_cofactor.html): Find context-specific cofactors in different regions  
 
