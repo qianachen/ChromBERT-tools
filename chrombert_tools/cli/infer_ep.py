@@ -127,7 +127,7 @@ def cal_sim_tss_region_pairs(
             'dist', 'dist_bin', out_col
         ])
 
-    pairs = pd.concat(out, ignore_index=True)[['chrom', 'gene_id', 'gene_name', 'tss', 'tss_build_region_index', 'distal_region_start', 'distal_region_end', 'distal_region_build_region_index', 'dist']]
+    pairs = pd.concat(out, ignore_index=True)[['chrom', 'gene_id', 'gene_name', 'tss', 'tss_build_region_index', 'start', 'end', 'build_region_index', 'dist']].rename(columns={'start': 'distal_region_start', 'end': 'distal_region_end', 'build_region_index': 'distal_region_build_region_index'})
     pairs = pairs[np.abs(pairs['dist']) <= window].reset_index(drop=True)
 
     pairs['dist_bin'] = pairs['distal_region_build_region_index'].astype(np.int64) - pairs['tss_build_region_index'].astype(np.int64)
@@ -139,7 +139,7 @@ def cal_sim_tss_region_pairs(
     if pre_normalize:
         E = E / (np.linalg.norm(E, axis=1, keepdims=True) + eps)
 
-    idx_r = pairs['build_region_index'].to_numpy(np.int64)
+    idx_r = pairs['distal_region_build_region_index'].to_numpy(np.int64)
     idx_t = pairs['tss_build_region_index'].to_numpy(np.int64)
 
     pos_r = np.searchsorted(union_idx, idx_r)
