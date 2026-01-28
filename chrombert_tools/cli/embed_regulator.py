@@ -75,7 +75,7 @@ def run(args, return_data=False):
     reg_sums = {name: np.zeros(768, dtype=np.float64) for name in regulator_idx_dict}
     
     reg_emb_dict = {}
-    with HDF5Manager(f"{odir}/regulator_emb_on_region.hdf5",
+    with HDF5Manager(f"{odir}/{args.oname}_region_aware.hdf5",
                      region=[(len(ds), 4), np.int64],
                      **shapes) as h5:
         with torch.no_grad():
@@ -123,12 +123,12 @@ def run(args, return_data=False):
         reg_name: (sum_vec / total_counts)
         for reg_name, sum_vec in reg_sums.items()
     }
-    out_pkl = os.path.join(odir, "mean_regulator_emb.pkl")
+    out_pkl = os.path.join(odir, f"{args.oname}_mean.pkl")
     with open(out_pkl, "wb") as f:
         pickle.dump(reg_means, f)
     print("Finished!")  
     print("Saved mean regulator embeddings to pickle file:", out_pkl)
-    print("Saved regulator embeddings to hdf5 file:", f"{odir}/regulator_emb_on_region.hdf5")
+    print("Saved regulator embeddings to hdf5 file:", f"{odir}/{args.oname}_region_aware.hdf5")
     
     if return_data:
         return reg_means, reg_emb_dict, overlap_bed
@@ -141,6 +141,9 @@ def run(args, return_data=False):
               help="Regulators of interest, e.g. EZH2 or EZH2;BRD4. Use ';' to separate multiple regulators.")
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), help="Output directory.")
+@click.option("--oname", default="regulator_emb", show_default=True,
+              type=str, 
+              help="Output name of the regulator embeddings.")
 @click.option("--genome", default="hg38", show_default=True,
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), help="Genome.")
 @click.option("--resolution", default="1kb", show_default=True,
@@ -153,7 +156,7 @@ def run(args, return_data=False):
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
 
-def embed_regulator(region, regulator, odir, genome, resolution, batch_size, num_workers,
+def embed_regulator(region, regulator, odir, oname, genome, resolution, batch_size, num_workers,
         chrombert_cache_dir):
     '''
     Extract general regulator embeddings on specified regions
@@ -162,6 +165,7 @@ def embed_regulator(region, regulator, odir, genome, resolution, batch_size, num
         region=region,
         regulator=regulator,
         odir=odir,
+        oname=oname,
         genome=genome.lower(),
         resolution=resolution,
         batch_size=batch_size,

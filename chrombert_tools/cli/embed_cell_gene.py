@@ -59,7 +59,7 @@ def run(args):
         train_odir = f"{odir}/train"
         os.makedirs(train_odir, exist_ok=True)
         print("Stage 1: Preparing the dataset for cell-specific model")
-        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict)
+        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict, args.mode)
         print("Finished stage 1")
     else:
         print("Finished stage 1")
@@ -147,7 +147,7 @@ def run(args):
     print("Finished stage 3")
 
     # ---------- save outputs ----------
-    with open(f"{odir}/cell_specific_gene_embs_dict.pkl", "wb") as f:
+    with open(f"{odir}/{args.oname}.pkl", "wb") as f:
         pickle.dump(gene_emb_dict, f)
 
     # ---------- report ----------
@@ -163,7 +163,7 @@ def run(args):
         print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt}")
     else:
         print(f"Cell-specific ChromBERT model saved to: {train_odir}")
-    print(f"Cell-specific gene embeddings saved to: {odir}/cell_specific_gene_embs_dict.pkl")
+    print(f"Cell-specific gene embeddings saved to: {odir}/{args.oname}.pkl")
     print(f"Matched gene meta saved to: {odir}/overlap_genes_meta.tsv")
 
 
@@ -184,6 +184,9 @@ def run(args):
               help="Fine-tuned ChromBERT checkpoint. If provided, skip fine-tuning and use this ckpt. If you not provide, you should provide --cell-type-bw and --cell-type-peak to train a cell-specific model.")
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), help="Output directory.")
+@click.option("--oname", default="gene_emb", show_default=True,
+              type=str, 
+              help="Output name of the gene embeddings.")
 @click.option("--genome", default="hg38", show_default=True,
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), help="Genome.")
 @click.option("--resolution", default="1kb", show_default=True,
@@ -209,7 +212,7 @@ def run(args):
               help="ChromBERT gene meta TSV. If not provided, try {genome}_{resolution}_gene_meta.tsv in the cache dir.")
 
 
-def embed_cell_gene(gene, cell_type_bw, cell_type_peak, ft_ckpt, odir, genome, resolution,
+def embed_cell_gene(gene, cell_type_bw, cell_type_peak, ft_ckpt, odir, oname, genome, resolution,
                     mode, batch_size, chrombert_cache_dir, chrombert_region_file, chrombert_gene_meta):
     '''
     Extract cell-specific gene embeddings
@@ -221,6 +224,7 @@ def embed_cell_gene(gene, cell_type_bw, cell_type_peak, ft_ckpt, odir, genome, r
         cell_type_peak=cell_type_peak,
         ft_ckpt=ft_ckpt,
         odir=odir,
+        oname=oname,
         genome=genome,
         resolution=resolution,
         mode=mode,

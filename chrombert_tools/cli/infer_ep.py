@@ -123,14 +123,14 @@ def cal_sim_tss_region_pairs(
 
     if not out:
         return pd.DataFrame(columns=[
-            'chrom', 'gene_id', 'gene_name', 'tss', 'tss_build_region_index', 'start', 'end', 'build_region_index',
+            'chrom', 'gene_id', 'gene_name', 'tss', 'tss_build_region_index', 'distal_region_start', 'distal_region_end', 'distal_region_build_region_index',
             'dist', 'dist_bin', out_col
         ])
 
-    pairs = pd.concat(out, ignore_index=True)[['chrom', 'gene_id', 'gene_name', 'tss', 'tss_build_region_index', 'start', 'end', 'build_region_index', 'dist']]
+    pairs = pd.concat(out, ignore_index=True)[['chrom', 'gene_id', 'gene_name', 'tss', 'tss_build_region_index', 'distal_region_start', 'distal_region_end', 'distal_region_build_region_index', 'dist']]
     pairs = pairs[np.abs(pairs['dist']) <= window].reset_index(drop=True)
 
-    pairs['dist_bin'] = pairs['build_region_index'].astype(np.int64) - pairs['tss_build_region_index'].astype(np.int64)
+    pairs['dist_bin'] = pairs['distal_region_build_region_index'].astype(np.int64) - pairs['tss_build_region_index'].astype(np.int64)
 
     # ---------- Part 2: cosine similarity with union_idx/union_emb ----------
     union_idx = np.asarray(union_idx, dtype=np.int64)

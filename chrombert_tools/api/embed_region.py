@@ -12,6 +12,7 @@ from ..cli.embed_region import run as _cli_run
 def embed_region(
     region: str,
     odir: str = "./output",
+    oname: str = "region_emb",
     genome: str = "hg38",
     resolution: str = "1kb",
     chrombert_cache_dir: Optional[str] = None,
@@ -30,6 +31,7 @@ def embed_region(
     args = SimpleNamespace(
         region=region,
         odir=odir,
+        oname=oname,
         genome=genome,
         resolution=resolution,
         chrombert_cache_dir=chrombert_cache_dir,

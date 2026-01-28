@@ -54,7 +54,7 @@ def run(args, return_data=False):
     if os.path.exists(emb_npy_path):
         all_emb = np.load(emb_npy_path)
         region_embs = all_emb[overlap_idx]
-        np.save(f"{odir}/overlap_region_emb.npy", region_embs)
+        np.save(f"{odir}/{args.oname}.npy", region_embs)
     else:
         print(f"ChromBERT region embedding file not found: {emb_npy_path}, and not directly pick region embedding from cache dir.")
         print("Load model ChromBERT to embed focus regions.")
@@ -69,7 +69,7 @@ def run(args, return_data=False):
                 model_emb(batch) # initialize the cache 
                 region_embs.append(model_emb.get_region_embedding().float().cpu().detach())
         region_embs = torch.cat(region_embs,axis=0).numpy()
-        np.save(f"{odir}/overlap_region_emb.npy", region_embs)
+        np.save(f"{odir}/{args.oname}.npy", region_embs)
         
 
     # ---------- report ----------
@@ -84,7 +84,7 @@ def run(args, return_data=False):
     )
     print("Overlapping focus regions BED file:", f"{odir}/overlap_region.bed")
     print("Non-overlapping focus regions BED file:", f"{odir}/no_overlap_region.bed")
-    print("Overlapping focus region embeddings saved to:", f"{odir}/overlap_region_emb.npy")
+    print("Overlapping focus region embeddings saved to:", f"{odir}/{args.oname}.npy")
     
     if return_data:
         return region_embs, overlap_bed
@@ -97,6 +97,9 @@ def run(args, return_data=False):
               required=True, help="Region file.")
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), help="Output directory.")
+@click.option("--oname", default="region_emb", show_default=True,
+              type=str, 
+              help="Output name of the region embeddings.")
 @click.option("--genome", default="hg38", show_default=True,
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), help="Genome.")
 @click.option("--resolution", default="1kb", show_default=True,
@@ -119,13 +122,14 @@ def run(args, return_data=False):
 
 
 
-def embed_region(region, odir, genome, resolution, chrombert_cache_dir,chrombert_region_file, chrombert_region_emb_file):      
+def embed_region(region, odir, oname, genome, resolution, chrombert_cache_dir,chrombert_region_file, chrombert_region_emb_file):      
     '''
     Extract general region embeddings
     '''
     args = SimpleNamespace(
         region=region,
         odir=odir,
+        oname=oname,
         genome=genome,
         resolution=resolution,
         chrombert_cache_dir=chrombert_cache_dir,

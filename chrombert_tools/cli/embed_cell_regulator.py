@@ -70,7 +70,7 @@ def run(args):
         os.makedirs(train_odir, exist_ok=True)
         
         print("Stage 2a: Preparing the dataset for cell-specific model")
-        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict)
+        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict, args.mode)
         print("Finished stage 2a")
         
         print("Stage 2b: Fine-tuning the model for cell-specific embeddings")
@@ -122,7 +122,7 @@ def run(args):
     total_counts = 0
     regulator_sums = {name: np.zeros(768, dtype=np.float64) for name in regulator_idx_dict}
     
-    out_h5 = f"{odir}/cell_specific_regulator_emb_on_region.hdf5"
+    out_h5 = f"{odir}/{args.oname}_region_aware.hdf5"
     with HDF5Manager(out_h5, region=[(len(ds), 4), np.int64], **shapes) as h5:
         with torch.no_grad():
             for batch in tqdm(dl, total=len(dl), desc="Computing regulator embeddings"):
@@ -162,7 +162,7 @@ def run(args):
     }
     
     # Save mean embeddings
-    out_pkl = os.path.join(odir, "cell_specific_mean_regulator_emb.pkl")
+    out_pkl = os.path.join(odir, f"{args.oname}_mean.pkl")
     with open(out_pkl, "wb") as f:
         pickle.dump(regulator_means, f)
     
@@ -202,6 +202,9 @@ def run(args):
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), 
               help="Output directory.")
+@click.option("--oname", default="regulator_emb", show_default=True,
+              type=str, 
+              help="Output name of the regulator embeddings.")
 @click.option("--genome", default="hg38", show_default=True,
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), 
               help="Genome.")
@@ -223,7 +226,7 @@ def run(args):
 
 
 def embed_cell_regulator(region, regulator, cell_type_bw, cell_type_peak, ft_ckpt, 
-                         odir, genome, resolution, mode, batch_size, num_workers, 
+                         odir, oname, genome, resolution, mode, batch_size, num_workers, 
                          chrombert_cache_dir):
     '''
     Extract cell-specific regulator embeddings on specified regions
@@ -235,6 +238,7 @@ def embed_cell_regulator(region, regulator, cell_type_bw, cell_type_peak, ft_ckp
         cell_type_peak=cell_type_peak,
         ft_ckpt=ft_ckpt,
         odir=odir,
+        oname=oname,
         genome=genome.lower(),
         resolution=resolution,
         mode=mode,

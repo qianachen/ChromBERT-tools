@@ -149,7 +149,7 @@ def overlap_region(region_bed, chrombert_region_file, odir):
     cmd_overlap = f"""
     cut -f 1-3 {region_bed} \
     | sort -k1,1 -k2,2n \
-    | bedtools intersect -F 0.5 -wa -wb -a {chrombert_region_file} -b - \
+    | bedtools intersect -f 0.5 -F 0.5 -e -wa -wb -a {chrombert_region_file} -b - \
     | awk 'BEGIN{{OFS="\\t"}}{{print $5,$6,$7,$4}}' \
     > {odir}/overlap_region.bed
     """
@@ -176,7 +176,7 @@ def overlap_region(region_bed, chrombert_region_file, odir):
     no_overlap_len = sum(1 for _ in open(f"{odir}/no_overlap_region.bed"))
     print(
         f"Region summary - total: {total_region}, "
-        f"overlapping with ChromBERT: {overlap_bed.shape[0]} (one region may overlap multiple ChromBERT regions), "
+        f"overlapping with ChromBERT: {overlap_bed.shape[0]} (one region may overlap multiple ChromBERT regions, We keep overlaps with ≥50% coverage of either the ChromBERT bin or the input region),"
         f"non-overlapping: {no_overlap_len}"
     )
     return overlap_bed

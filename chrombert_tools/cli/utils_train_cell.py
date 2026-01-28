@@ -12,7 +12,7 @@ from .utils import bw_getSignal_bins, split_data
 from lightning.pytorch.callbacks import TQDMProgressBar
 from chrombert.scripts.chrombert_make_dataset import process
 
-def make_dataset(peak, bw, d_odir, files_dict):
+def make_dataset(peak, bw, d_odir, files_dict, mode):
     # 1.prepare_dataset
     total_peak_process = (
         process(peak, files_dict["chrombert_region_file"], mode="region")[["chrom", "start", "end", "build_region_index"]]
@@ -20,11 +20,7 @@ def make_dataset(peak, bw, d_odir, files_dict):
         .reset_index(drop=True)
     )
     total_peak_process.to_csv(f"{d_odir}/chrombert_region_overlap_peak.csv", index=False)
-
-    total_region_processed_sampled = (
-        total_peak_process.sample(n=min(20000, len(total_peak_process)), random_state=55).reset_index(drop=True)
-    )
-    total_region_processed_sampled.to_csv(f"{d_odir}/total_region_processed_sampled.csv", index=False)
+    print(f"Total regions: {len(total_peak_process)}")
 
     # 2. scan signal
     signal = bw_getSignal_bins(bw=bw, regions=total_peak_process)
@@ -45,16 +41,8 @@ def make_dataset(peak, bw, d_odir, files_dict):
     ]
 
     total_region_signal_processed.to_csv(f"{d_odir}/total_region_signal_processed.csv", index=False)
-    total_region_signal_processed_sampled = total_region_signal_processed[
-        total_region_signal_processed.build_region_index.isin(total_region_processed_sampled.build_region_index)
-    ]
-    total_region_signal_processed_sampled.to_csv(f"{d_odir}/total_region_signal_processed_sampled.csv", index=False)
 
-    # 4. train/test/valid split
-    split_data(total_region_signal_processed, "", d_odir)
-    split_data(total_region_signal_processed_sampled, "_sampled", d_odir)
-
-    # 5.up region and nochange region
+    # 4.up region and nochange region
     up_region = (
         total_region_signal_processed[total_region_signal_processed["label"] > 1]
         .sort_values("label", ascending=False)
@@ -71,8 +59,25 @@ def make_dataset(peak, bw, d_odir, files_dict):
         .iloc[0:1000]
     )
 
-    up_region.to_csv(f"{d_odir}/up_region.csv", index=False)
-    nochange_region.to_csv(f"{d_odir}/nochange_region.csv", index=False)
+    up_region.to_csv(f"{d_odir}/highly_accessible_region.csv", index=False)
+    nochange_region.to_csv(f"{d_odir}/background_region.csv", index=False)
+    
+    
+    # 5. downsample if mode is fast and train/valid/test split
+    if mode == "fast":
+        print("Fast mode: downsampling to 20k regions")
+        total_region_processed_sampled = (
+            total_peak_process.sample(n=min(20000, len(total_peak_process)), random_state=55).reset_index(drop=True)
+        )
+        total_region_processed_sampled.to_csv(f"{d_odir}/total_region_processed_sampled.csv", index=False)
+        total_region_signal_processed_sampled = total_region_signal_processed[
+        total_region_signal_processed.build_region_index.isin(total_region_processed_sampled.build_region_index)
+    ]
+        total_region_signal_processed_sampled.to_csv(f"{d_odir}/total_region_signal_processed_sampled.csv", index=False)
+        split_data(total_region_signal_processed_sampled, "_sampled", d_odir)
+    else:
+        print("Using all regions for training")
+        split_data(total_region_signal_processed, "", d_odir)
 
 
 def init_datamodule(d_odir, args, files_dict, ignore_object=None, task="general"):

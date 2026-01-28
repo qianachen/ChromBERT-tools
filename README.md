@@ -71,26 +71,24 @@ For detailed usage, please check the documentation: [chrombert-tools.readthedocs
 
 For detailed usage examples, see the Jupyter notebooks in [`examples/cli/`](examples/cli/).
 
-### General (pre-trained)
+### Generation of regulation-informed embeddings
 - [embed_cistrome](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_cistrome.html): Extract cistrome embeddings for specified regions  
 - [embed_gene](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_gene.html): Extract gene embeddings  
 - [embed_region](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_region.html): Extract region embeddings for specified regions  
-- [embed_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_regulator.html): Extract regulator embeddings for specified regions  
-- [infer_trn](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_trn.html): Infer transcriptional regulatory networks (TRNs) on specified regions  
-
-### Cell-type-specific
-- [infer_cell_trn](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_cell_trn.html): Infer cell-type-specific TRNs on specified regions and key regulators  
+- [embed_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_regulator.html): Extract regulator embeddings for specified regions
 - [embed_cell_cistrome](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_cell_cistrome.html): Extract cell-type-specific cistrome embeddings for specified regions  
 - [embed_cell_gene](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_cell_gene.html): Extract cell-type-specific gene embeddings  
 - [embed_cell_region](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_cell_region.html): Extract cell-type-specific region embeddings for specified regions  
 - [embed_cell_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_cell_regulator.html): Extract cell-type-specific regulator embeddings for specified regions  
 
-### Cistrome imputation
-- [impute_cistrome](https://chrombert-tools.readthedocs.io/en/latest/commands/impute_cistrome.html): Impute cistrome data on specified regions  
 
-### Driver analysis
-- [find_driver_in_dual_region](https://chrombert-tools.readthedocs.io/en/latest/commands/find_driver_in_dual_region.html): Find driver factors in dual-functional regions  
-- [find_driver_in_transition](https://chrombert-tools.readthedocs.io/en/latest/commands/find_driver_in_transition.html): Find driver factors in cell-state transitions  
+### Interpretation of regulation-informed embeddings
+- [infer_ep](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_ep.html): Infer enhancer-promoter interactions on specified regions
+- [infer_regulator_network](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_regulator_network.html): Infer regulator-regulator networks on specified regions  
+- [impute_cistrome](https://chrombert-tools.readthedocs.io/en/latest/commands/impute_cistrome.html): Impute cistrome data on specified regions 
+- [infer_cell_key_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/infer_cell_key_regulator.html): Infer cell-type-specific key regulators on specified regions
+- [find_driver_in_transition](https://chrombert-tools.readthedocs.io/en/latest/commands/find_driver_in_transition.html): Find driver factors in cell-state transitions
+- [find_context_specific_cofactor](https://chrombert-tools.readthedocs.io/en/latest/commands/find_context_specific_cofactor.html): Find context-specific cofactors in different regions  
 
 
 ## ChromBERT-tools API
@@ -98,7 +96,7 @@ For detailed usage examples, see the Jupyter notebooks in [`examples/cli/`](exam
 In addition to CLI commands, you can now call ChromBERT-tools directly in Python. It currently supports tasks that do not require fine-tuning:
 
 ```python
-from chrombert_tools import embed_gene, embed_region, embed_cistrome, embed_regulator, infer_trn, impute_cistrome
+from chrombert_tools import embed_gene, embed_region, embed_cistrome, embed_regulator, infer_ep, infer_regulator_network, impute_cistrome
 ```
 
 For detailed usage examples, see the Jupyter notebooks in [`examples/api/`](examples/api/).

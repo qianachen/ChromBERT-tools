@@ -54,11 +54,11 @@ from . import (
     embed_cell_region,
     embed_cell_regulator,
     infer_ep,
-    infer_trn,
-    infer_cell_trn,
     impute_cistrome,
-    find_driver_in_dual_region,
+    infer_regulator_network,
+    infer_cell_key_regulator,
     find_dirver_in_transition,
+    find_context_specific_cofactor,
 )
 
 # Register all subcommands
@@ -71,8 +71,8 @@ cli.add_command(embed_cell_cistrome.embed_cell_cistrome)
 cli.add_command(embed_cell_region.embed_cell_region)
 cli.add_command(embed_cell_regulator.embed_cell_regulator)
 cli.add_command(infer_ep.infer_ep)
-cli.add_command(infer_trn.infer_trn)
-cli.add_command(infer_cell_trn.infer_cell_trn)
+cli.add_command(infer_regulator_network.infer_regulator_network)
+cli.add_command(infer_cell_key_regulator.infer_cell_key_regulator)
 cli.add_command(impute_cistrome.impute_cistrome)
-cli.add_command(find_driver_in_dual_region.find_driver_in_dual_region)
 cli.add_command(find_dirver_in_transition.find_driver_in_transition)
+cli.add_command(find_context_specific_cofactor.find_context_specific_cofactor)

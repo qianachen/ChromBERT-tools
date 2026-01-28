@@ -1,13 +1,13 @@
 """
-API interface for TRN inference
+API interface for regulator-regulator network inference
 Provides a Python-friendly interface reusing the CLI implementation.
 """
 from types import SimpleNamespace
 from typing import List, Optional, Union
-from ..cli.infer_trn import run as _cli_run
+from ..cli.infer_regulator_network import run as _cli_run
 import os
 
-def infer_trn(
+def infer_regulator_network(
     region: str,
     odir: str = "./output",
     genome: str = "hg38",
@@ -15,7 +15,7 @@ def infer_trn(
     regulator: Optional[Union[str, List[str]]] = None,
     batch_size: int = 64,
     num_workers: int = 8,
-    quantile: float = 0.99,
+    quantile: float = 0.98,
     k_hop: int = 1,
     chrombert_cache_dir: Optional[str] = None,
 ):

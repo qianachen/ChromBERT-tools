@@ -12,7 +12,7 @@ from .api.embed_cistrome import embed_cistrome
 from .api.embed_region import embed_region
 from .api.embed_regulator import embed_regulator
 from .api.impute_cistrome import impute_cistrome
-from .api.infer_trn import infer_trn
+from .api.infer_regulator_network import infer_regulator_network
 from .api.infer_ep import infer_ep
 
 __all__ = [
@@ -21,7 +21,7 @@ __all__ = [
     "embed_cistrome",
     "embed_region",
     "embed_regulator",
-    "impute_cistrome",
-    "infer_trn",
     "infer_ep",
+    "impute_cistrome",
+    "infer_regulator_network",
 ]

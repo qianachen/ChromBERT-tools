@@ -9,10 +9,10 @@ import torch
 from tqdm import tqdm
 import json
 
-import chrombert
 from chrombert import DatasetConfig,ChromBERTFTConfig
 from .utils import resolve_paths, check_files, check_region_file
-
+import pyBigWig
+import bioframe as bf
 
 def overlap_cistrome_func(cistrome, chrombert_meta_file):
     focus_cistrome_list = [r.strip().lower() for r in cistrome.split(";") if r.strip()]
@@ -91,6 +91,31 @@ def model_emb_func(args,files_dict,odir):
     )
     model_emb = model_config.init_model().get_embedding_manager().cuda().bfloat16()
     return ds, dl, model_emb
+
+def get_bw(results_pro_df, odir):
+    chrom_sizes = bf.fetch_chromsizes('hg38')
+    chrom_order = list(chrom_sizes.keys())
+
+    results_pro_df['chrom'] = pd.Categorical(results_pro_df['chrom'], categories=chrom_order, ordered=True)
+    results_pro_df = results_pro_df.sort_values(by=['chrom', 'start'])
+
+    for column in results_pro_df.columns:
+        if column in ['chrom', 'start', 'end']:
+            continue
+        cell=column.split(":")[-1]
+        factor=column.split(":")[0]
+        opath = f'{odir}/{factor}_{cell}.bw'
+        bw = pyBigWig.open(opath, 'w')
+        bw.addHeader(list(chrom_sizes.items()))
+        
+        # Prepare data with correct types
+        chrom_list = results_pro_df['chrom'].astype(str).tolist()
+        start_list = results_pro_df['start'].astype(int).tolist()
+        end_list = results_pro_df['end'].astype(int).tolist()
+        values_list = results_pro_df[column].astype(float).tolist()
+        
+        bw.addEntries(chrom_list, start_list, end_list, values=values_list)
+        bw.close()
 
 def run(args, return_data=False):
     odir = args.odir
@@ -185,12 +210,17 @@ def run(args, return_data=False):
         columns=["input_chrom", "input_start", "input_end", "chrombert_build_region_index", "chrombert_start", "chrombert_end"]
     )
 
-    results_pro_df = pd.DataFrame(results_probs_dict)
-    results_pro_df = pd.concat([region_df, results_pro_df], axis=1)
+    raw_results_pro_df = pd.DataFrame(results_probs_dict)
+    results_pro_df = pd.concat([region_df, raw_results_pro_df], axis=1)
     results_pro_df.to_csv(f'{odir}/results_prob_df.csv', index=False)
+
+    bw_results_pro_df = results_pro_df.drop(columns=["input_start", "input_end", "chrombert_build_region_index"])
+    bw_results_pro_df.rename(columns={"input_chrom": "chrom", "chrombert_start": "start", "chrombert_end": "end"}, inplace=True)
+    get_bw(bw_results_pro_df,odir)
 
     print("Finished imputing cistromes on specific regions.")
     print(f"Results saved to {odir}/results_prob_df.csv")
+    print(f"Results track files saved to {odir}/*.bw")
     
     if return_data:
         return results_pro_df

@@ -47,8 +47,8 @@ def plot_regulator_subnetwork(G: nx.Graph, target_reg: str, odir: str, k_hop: in
     plt.axis("off")
     plt.title(f"{target_reg} subnetwork (k={k_hop}, thr={threshold:.3f}, q={quantile:.3f})")
     plt.tight_layout()
-    plt.savefig(f"{odir}/subnetwork_{target_reg}_k{k_hop}.pdf")
-    print(f"Regulator subnetwork saved to: {odir}/subnetwork_{target_reg}_k{k_hop}.pdf")
+    plt.savefig(f"{odir}/subnetwork_{target_reg}_k{k_hop}_q{quantile:.3f}_thr{threshold:.3f}.pdf")
+    print(f"Regulator subnetwork saved to: {odir}/subnetwork_{target_reg}_k{k_hop}_q{quantile:.3f}_thr{threshold:.3f}.pdf")
     
     if not return_fig:
         plt.close()
@@ -186,7 +186,7 @@ def run(args, return_data=False):
         return df_edges
 
 
-@click.command(name="infer_trn", context_settings={"help_option_names": ["-h", "--help"]})
+@click.command(name="infer_regulator_network", context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=True, help="Region BED file (focus regions).")
@@ -207,15 +207,15 @@ def run(args, return_data=False):
               help="Batch size for region dataloader.")
 @click.option("--num-workers", default=8, show_default=True, type=int,
               help="Number of dataloader workers.")
-@click.option("--quantile", default=0.99, show_default=True, type=float,
+@click.option("--quantile", default=0.98, show_default=True, type=float,
               help="Quantile threshold for cosine similarity edges.")
 @click.option("--k-hop", default=1, show_default=True, type=int,
               help="k-hop radius for subnetwork plotting.")
 
-def infer_trn(region, regulator, odir, genome, resolution,chrombert_cache_dir,
+def infer_regulator_network(region, regulator, odir, genome, resolution,chrombert_cache_dir,
               batch_size, num_workers, quantile, k_hop):
     '''
-    Infer general TRN (Transition Regulatory Network)
+    Infer general regulator-regulator network
     '''
     args = SimpleNamespace(
         region=region,
@@ -233,5 +233,5 @@ def infer_trn(region, regulator, odir, genome, resolution,chrombert_cache_dir,
 
 
 if __name__ == "__main__":
-    infer_trn()
+    infer_regulator_network()
 

@@ -67,7 +67,7 @@ def run(args):
         os.makedirs(train_odir, exist_ok=True)
         
         print("Stage 2a: Preparing the dataset for cell-specific model")
-        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict)
+        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict, args.mode)
         print("Finished stage 2a")
         
         print("Stage 2b: Fine-tuning the model for cell-specific embeddings")
@@ -118,7 +118,7 @@ def run(args):
     total_counts = 0
     cistrome_sums = {name: np.zeros(768, dtype=np.float64) for name in cistrome_gsmid_dict}
     
-    out_h5 = f"{args.odir}/cell_specific_cistrome_emb_on_region.hdf5"
+    out_h5 = f"{args.odir}/{args.oname}_region_aware.hdf5"
     with HDF5Manager(out_h5, region=[(len(ds), 4), np.int64], **shapes) as h5:
         with torch.no_grad():
             for batch in tqdm(dl, total=len(dl), desc="Computing cistrome embeddings"):
@@ -158,7 +158,7 @@ def run(args):
     }
     
     # Save mean embeddings
-    out_pkl = os.path.join(args.odir, "cell_specific_mean_cistrome_emb.pkl")
+    out_pkl = os.path.join(args.odir, f"{args.oname}_mean.pkl")
     with open(out_pkl, "wb") as f:
         pickle.dump(cistrome_means, f)
     
@@ -200,6 +200,9 @@ def run(args):
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), 
               help="Output directory.")
+@click.option("--oname", default="cistrome_emb", show_default=True,
+              type=str, 
+              help="Output name of the cistrome embeddings.")
 @click.option("--genome", default="hg38", show_default=True,
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), 
               help="Genome.")
@@ -221,7 +224,7 @@ def run(args):
 
 
 def embed_cell_cistrome(region, cistrome, cell_type_bw, cell_type_peak, ft_ckpt, 
-                        odir, genome, resolution, mode, batch_size, num_workers, 
+                        odir, oname, genome, resolution, mode, batch_size, num_workers, 
                         chrombert_cache_dir):
     '''
     Extract cell-specific cistrome embeddings on specified regions
@@ -233,6 +236,7 @@ def embed_cell_cistrome(region, cistrome, cell_type_bw, cell_type_peak, ft_ckpt,
         cell_type_peak=cell_type_peak,
         ft_ckpt=ft_ckpt,
         odir=odir,
+        oname=oname,
         genome=genome.lower(),
         resolution=resolution,
         mode=mode,

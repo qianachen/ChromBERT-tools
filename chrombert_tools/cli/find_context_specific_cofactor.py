@@ -373,7 +373,7 @@ def run(args):
 
 
 @click.command(
-    name="find_driver_in_dual_region",
+    name="find_context_specific_cofactor",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -470,7 +470,7 @@ def run(args):
     type=click.Path(file_okay=False),
     help="ChromBERT cache directory (containing config/ and anno/ subfolders).",
 )
-def find_driver_in_dual_region(
+def find_context_specific_cofactor(
     function1_bed,
     function1_mode,
     function2_bed,
@@ -486,7 +486,7 @@ def find_driver_in_dual_region(
     chrombert_cache_dir,
 ):
     """
-    Find driver factors in dual functional regions.
+    Find context-specific cofactors in different regions.
     
     """
     args = SimpleNamespace(
@@ -508,4 +508,4 @@ def find_driver_in_dual_region(
 
 
 if __name__ == "__main__":
-    find_driver_in_dual_region()
+    find_context_specific_cofactor()

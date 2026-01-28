@@ -12,6 +12,7 @@ from ..cli.embed_gene import run as _cli_run
 def embed_gene(
     gene: Union[str, List[str]],
     odir: str = "./output",
+    oname: str = "gene_emb",
     genome: str = "hg38",
     resolution: str = "1kb",
     chrombert_cache_dir: Optional[str] = None,
@@ -34,6 +35,7 @@ def embed_gene(
     args = SimpleNamespace(
         gene=gene_str,
         odir=odir,
+        oname=oname,
         genome=genome,
         resolution=resolution,
         chrombert_cache_dir=chrombert_cache_dir,

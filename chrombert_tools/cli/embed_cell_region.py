@@ -49,7 +49,7 @@ def run(args):
         os.makedirs(train_odir, exist_ok=True)
         
         print("Stage 2a: Preparing the dataset for cell-specific model")
-        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict)
+        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict, args.mode)
         print("Finished stage 2a")
         
         print("Stage 2b: Fine-tuning the model for cell-specific embeddings")
@@ -107,7 +107,7 @@ def run(args):
     region_embs = torch.cat(region_embs, dim=0).numpy()  # (len(overlap_bed), 768)
     
     # Save embeddings
-    np.save(f"{odir}/cell_specific_overlap_region_emb.npy", region_embs)
+    np.save(f"{odir}/{args.oname}.npy", region_embs)
     
     print("Finished stage 3")
 
@@ -128,7 +128,7 @@ def run(args):
         print(f"Cell-specific ChromBERT model saved to: {train_odir}")
     print(f"Overlapping regions BED file: {odir}/overlap_region.bed")
     print(f"Non-overlapping regions BED file: {odir}/no_overlap_region.bed")
-    print(f"Cell-specific region embeddings saved to: {odir}/cell_specific_overlap_region_emb.npy")
+    print(f"Cell-specific region embeddings saved to: {odir}/{args.oname}.npy")
 
 
 @click.command(name="embed_cell_region", context_settings={"help_option_names": ["-h", "--help"]})
@@ -152,6 +152,9 @@ def run(args):
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), 
               help="Output directory.")
+@click.option("--oname", default="region_emb", show_default=True,
+              type=str, 
+              help="Output name of the region embeddings.")
 @click.option("--genome", default="hg38", show_default=True,
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), 
               help="Genome.")
@@ -175,7 +178,7 @@ def run(args):
 
 
 def embed_cell_region(region, cell_type_bw, cell_type_peak, ft_ckpt, 
-                      odir, genome, resolution, mode, batch_size, 
+                      odir, oname, genome, resolution, mode, batch_size, 
                       chrombert_cache_dir, chrombert_region_file):
     '''
     Extract cell-specific region embeddings
@@ -186,6 +189,7 @@ def embed_cell_region(region, cell_type_bw, cell_type_peak, ft_ckpt,
         cell_type_peak=cell_type_peak,
         ft_ckpt=ft_ckpt,
         odir=odir,
+        oname=oname,
         genome=genome,
         resolution=resolution,
         mode=mode,

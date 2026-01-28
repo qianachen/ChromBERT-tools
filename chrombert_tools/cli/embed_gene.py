@@ -159,7 +159,7 @@ def run(args,return_data=False):
 
     # ---------- save outputs ----------
     import pickle
-    with open(f"{odir}/embs_dict.pkl", "wb") as f:
+    with open(f"{odir}/{args.oname}.pkl", "wb") as f:
         pickle.dump(gene_emb_dict, f)
 
     # ---------- report ----------
@@ -172,7 +172,7 @@ def run(args,return_data=False):
     )
     print("Gene meta file:", gene_meta_tsv)
     print("Region embedding source:", emb_npy_path if os.path.exists(emb_npy_path) else "computed by ChromBERT model")
-    print("Gene embeddings saved to:", f"{odir}/embs_dict.pkl")
+    print("Gene embeddings saved to:", f"{odir}/{args.oname}.pkl")
     print("Matched gene meta saved to:", f"{odir}/overlap_genes_meta.tsv")
 
     if return_data:
@@ -186,6 +186,9 @@ def run(args,return_data=False):
               help="Gene symbols or IDs. e.g. ENSG00000170921;TANC2;DPYD. Use ';' to separate multiple genes.")
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), help="Output directory.")
+@click.option("--oname", default="gene_emb", show_default=True,
+              type=str, 
+              help="Output name of the gene embeddings.")
 @click.option("--genome", default="hg38", show_default=True,
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), help="Genome.")
 @click.option("--resolution", default="1kb", show_default=True,
@@ -210,7 +213,7 @@ def run(args,return_data=False):
               default=None,
               type=click.Path(exists=True, dir_okay=False, readable=True),
               help="ChromBERT gene meta TSV. If not provided, try {genome}_{resolution}_gene_meta.tsv, then fallback to hm_1kb_gene_meta.tsv in the cache dir.")
-def embed_gene(gene, odir, genome, resolution, chrombert_cache_dir,
+def embed_gene(gene, odir, oname, genome, resolution, chrombert_cache_dir,
                chrombert_region_file, chrombert_region_emb_file, chrombert_gene_meta):
     '''
     Extract general gene embeddings
@@ -218,6 +221,7 @@ def embed_gene(gene, odir, genome, resolution, chrombert_cache_dir,
     args = SimpleNamespace(
         gene=gene,
         odir=odir,
+        oname=oname,
         genome=genome,
         resolution=resolution,
         chrombert_cache_dir=chrombert_cache_dir,

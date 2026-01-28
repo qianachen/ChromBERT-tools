@@ -50,76 +50,6 @@ def generate_emb(data_config, model_emb, sup_file, odir, name):
         pickle.dump(embs_pool_dict, f)
     return embs_pool
 
-
-def plot_regulator_subnetwork(G, target_reg, odir, k_hop=1, threshold=None, quantile=None):
-    if target_reg not in G:
-        print(f"[WARN] {target_reg} not found in graph (degree == 0)")
-        return
-
-    subG = nx.ego_graph(G, target_reg, radius=k_hop)
-    print(f"Subnetwork for {target_reg}:")
-    print("  nodes:", subG.number_of_nodes())
-    print("  edges:", subG.number_of_edges())
-
-    plt.figure(figsize=(6, 6))
-    pos = nx.spring_layout(subG, seed=42)
-
-    node_colors = []
-    node_sizes = []
-    for n in subG.nodes():
-        if n == target_reg:
-            node_colors.append("red")
-            node_sizes.append(500)
-        else:
-            node_colors.append("lightgray")
-            node_sizes.append(500)
-
-    edges = subG.edges(data=True)
-    weights = [d.get("weight", 1.0) for (_, _, d) in edges]
-    edge_widths = [1 + 3 * (w - min(weights)) / (max(weights) - min(weights) + 1e-8) for w in weights]
-
-    nx.draw_networkx_nodes(subG, pos, node_color=node_colors, node_size=node_sizes)
-    nx.draw_networkx_edges(subG, pos, width=edge_widths, alpha=0.7)
-    nx.draw_networkx_labels(subG, pos, font_size=10)
-
-    plt.axis("off")
-    plt.title(f"Subnetwork of {target_reg} (k:{k_hop}, threshold:{threshold:.3f}, quantile:{quantile:.3f})")
-    plt.tight_layout()
-    plt.savefig(f"{odir}/subnetwork_{target_reg}_k{k_hop}.pdf")
-
-
-def plot_trn(embs, regulators, focus_regulator, odir, quantile=0.99, k_hop=1):
-    cos_sim = cosine_similarity(embs)
-    cos_sim_df = pd.DataFrame(cos_sim, index=regulators, columns=regulators)
-    cos_sim_df.to_csv(f"{odir}/regulator_cosine_similarity.tsv", sep="\t", index=True)
-    N = embs.shape[0]
-    i_upper = np.triu_indices(N, k=1)
-    threshold = np.quantile(cos_sim[i_upper], quantile)
-
-    G = nx.Graph()
-    edge_rows = []
-    for i in range(N):
-        for j in range(i + 1, N):
-            w = cos_sim[i, j]
-            if w >= threshold:
-                n1 = regulators[i]
-                n2 = regulators[j]
-                G.add_edge(n1, n2, weight=w)
-                edge_rows.append((n1, n2, w))
-
-    df_edges = pd.DataFrame(edge_rows, columns=["node1", "node2", "cosine_similarity"])
-    df_edges.to_csv(
-        f"{odir}/total_graph_edge_threshold{threshold:.2f}_quantile{quantile:.2f}.tsv",
-        sep="\t",
-        index=False,
-    )
-
-    print("Number of nodes of total graph:", G.number_of_nodes())
-    print(f"Number of edges of total graph (threshold={threshold:.3f}):", G.number_of_edges())
-    if focus_regulator is not None:
-        for reg in focus_regulator:
-            plot_regulator_subnetwork(G, reg, odir, k_hop=k_hop, threshold=threshold, quantile=quantile)
-
 def run(args):
     odir = args.odir
     os.makedirs(odir, exist_ok=True)
@@ -140,7 +70,7 @@ def run(args):
 
     # 1) prepare dataset
     print("Stage 1: Praparing the dataset")
-    make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict)
+    make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict, args.mode)
     print("Finished stage 1")
 
     # 2) train or load fine-tuned model
@@ -167,19 +97,11 @@ def run(args):
         print("Stage 2: Fine-tuning the model")
         model_tuned, train_odir, model_config, data_config = retry_train(args, files_dict, cal_metrics_regression, metcic='pearsonr', min_threshold=0.4)
 
-        # data_module, model_config = model_train(d_odir, train_odir, args, files_dict)
-        # data_config = data_module.basic_config
-        # print("Finished stage 2: the important stage, Congratudate you get a cell-specific chrombert")
-        # print("Evaluating the finetuned model performance")
-        # model_tuned, test_metrics = model_eval(args, train_odir, data_module, model_config, cal_metrics_regression)
-        # if test_metrics['pcc'] < 0.4:
-        #     print("Warning: The model performs poorly (e.g., NaNs or low correlation), try rerunning the training once or twice; results can vary due to random initialization and stochastic optimization.")
-
     # 3) embedding
     print("Stage 3: generate regulator embedding on different activity regions")
     model_emb = model_embedding(train_odir, model_config, ft_ckpt=args.ft_ckpt, model_tuned=model_tuned)
-    up_emb = generate_emb(data_config, model_emb, f"{d_odir}/up_region.csv", emb_odir, "up")
-    nochange_emb = generate_emb(data_config, model_emb, f"{d_odir}/nochange_region.csv", emb_odir, "nochange")
+    up_emb = generate_emb(data_config, model_emb, f"{d_odir}/highly_accessible_region.csv", emb_odir, "up")
+    nochange_emb = generate_emb(data_config, model_emb, f"{d_odir}/background_region.csv", emb_odir, "background")
     print("Finished stage 3")
 
     # 4) key regulator
@@ -188,24 +110,15 @@ def run(args):
     print("Finished stage 4: identify cell-specific key regulators (top 25)")
     print(cos_sim_df.head(n=25))
 
-
-    # 5) TRN
-    print("Stage 5: plot TRN")
-    focus_regulator = cos_sim_df.head(n=25).factors.tolist()
-    plot_trn(up_emb, model_emb.list_regulator, focus_regulator, results_odir, quantile=args.quantile, k_hop=args.k_hop)
-    print("Finished stage 5")
-
     print("Finished all stages!")
     if args.ft_ckpt is not None:
         print(f"Used fine-tuned ChromBERT checkpoint: {args.ft_ckpt}")
     else:
         print(f"Cell-specific ChromBERT model saved to: {train_odir}")
     print(f"Key regulators for this cell type saved to: {results_odir}/factor_importance_rank.csv")
-    print(f"TRN edge list for this cell type saved to: {results_odir}/total_graph_edge_threshold*_quantile*.tsv")
-    print(f"Subnetwork for each top 25 regulator saved to: {results_odir}/subnetwork_*.pdf")
 
 
-@click.command(name="infer_cell_trn", context_settings={"help_option_names": ["-h", "--help"]})
+@click.command(name="infer_cell_key_regulator", context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--cell-type-bw", "cell_type_bw",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=True, help="Cell type accessibility BigWig file.")
@@ -233,15 +146,12 @@ def run(args):
               default="~/.cache/chrombert/data",
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache directory (contains config/ anno/ checkpoint/ etc).")
-@click.option("--quantile", default=0.98, show_default=True, type=float,
-              help="Quantile threshold for cosine similarity.")
-@click.option("--k-hop", "k_hop", default=1, show_default=True, type=int,
-              help="k-hop for subnetwork (currently subnetwork plot uses k_hop=1 as in file1).")
 
-def infer_cell_trn(cell_type_bw, cell_type_peak, ft_ckpt, odir, mode, batch_size,
-                   chrombert_cache_dir, quantile, k_hop, genome, resolution):
+
+def infer_cell_key_regulator(cell_type_bw, cell_type_peak, ft_ckpt, odir, mode, batch_size,
+                   chrombert_cache_dir, genome, resolution):
     '''
-    Infer cell-specific TRN (Transition Regulatory Network)
+    Infer cell-specific key regulators
     '''
     args = SimpleNamespace(
         cell_type_bw=cell_type_bw,
@@ -253,11 +163,9 @@ def infer_cell_trn(cell_type_bw, cell_type_peak, ft_ckpt, odir, mode, batch_size
         mode=mode,
         batch_size=batch_size,
         chrombert_cache_dir=chrombert_cache_dir,
-        quantile=quantile,
-        k_hop=k_hop,
     )
     run(args)
 
 
 if __name__ == "__main__":
-    infer_cell_trn()
+    infer_cell_key_regulator()

@@ -74,7 +74,7 @@ def run(args, return_data=False):
     # Store embeddings if needed for return_data
     cistrome_emb_dict = {}
 
-    out_h5 = f"{args.odir}/cistrome_emb_on_region.hdf5"
+    out_h5 = f"{args.odir}/{args.oname}_region_aware.hdf5"
     with HDF5Manager(out_h5, region=[(len(ds), 4), np.int64], **shapes) as h5:
         with torch.no_grad():
             for batch in tqdm(dl, total=len(dl)):
@@ -121,7 +121,7 @@ def run(args, return_data=False):
         reg_name: (sum_vec / total_counts)
         for reg_name, sum_vec in cistrome_sums.items()
     }
-    out_pkl = os.path.join(args.odir, "mean_cistrome_emb.pkl")
+    out_pkl = os.path.join(args.odir, f"{args.oname}_mean.pkl")
     with open(out_pkl, "wb") as f:
         pickle.dump(cistrome_means, f)
     print("Finished!")
@@ -140,6 +140,9 @@ def run(args, return_data=False):
               help="GSM/ENCODE id or factor:cell, e.g. ENCSR... or GSM... or ATAC-seq:HEK293T or BCL11A:GM12878. Use ';' to separate multiple.")
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), help="Output directory.")
+@click.option("--oname", default="cistrome_emb", show_default=True,
+              type=str, 
+              help="Output name of the cistrome embeddings.")
 @click.option("--genome", default="hg38", show_default=True,
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), help="Genome.")
 @click.option("--resolution", default="1kb", show_default=True,
@@ -150,7 +153,7 @@ def run(args, return_data=False):
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
 
-def embed_cistrome(region, cistrome, odir, genome, resolution, batch_size, num_workers,
+def embed_cistrome(region, cistrome, odir, oname, genome, resolution, batch_size, num_workers,
         chrombert_cache_dir):
     '''
     Extract general cistrome embeddings on specified regions
@@ -160,6 +163,7 @@ def embed_cistrome(region, cistrome, odir, genome, resolution, batch_size, num_w
         region=region,
         cistrome=cistrome,
         odir=odir,
+        oname=oname,
         genome=genome.lower(),
         resolution=resolution,
         batch_size=batch_size,
