@@ -19,32 +19,21 @@ Optional: download the image from the [Google Drive link](https://drive.google.c
 
 Quick check:
 ```bash
-singularity exec chrombert.sif python -c "import chrombert; print('hello chrombert')" # need some time
-singularity exec chrombert.sif chrombert-tools
+singularity exec /path/to/chrombert.sif python -c "import chrombert; print('hello chrombert')" # need some time
+singularity exec /path/to/chrombert.sif chrombert-tools
 ```
 
 ### 2) ChromBERT pre-trained models files
 Download models and annotations to `~/.cache/chrombert/data`:
 ```shell
-singularity exec chrombert.sif chrombert_prepare_env --genome hg38 --resolution 1kb
+singularity exec /path/to/chrombert.sif chrombert_prepare_env --genome hg38 --resolution 1kb
 ```
 If Hugging Face is slow, add `--hf-endpoint <mirror>`:
 ```shell
-singularity exec chrombert.sif chrombert_prepare_env --genome hg38 --resolution 1kb --hf-endpoint <Hugging Face endpoint>
+singularity exec /path/to/chrombert.sif chrombert_prepare_env --genome hg38 --resolution 1kb --hf-endpoint <Hugging Face endpoint>
 ```
 
-### 3) Install ChromBERT-tools
-```bash
-git clone https://github.com/TongjiZhanglab/ChromBERT-tools.git
-cd ChromBERT-tools
-pip install -e .
-```
-Verify:
-```bash
-chrombert-tools
-```
-
-### 4) Update the Singularity image with the latest ChromBERT-tools (optional)
+### 3) (optional) Update the Singularity image with the latest ChromBERT-tools
 To add new packages or update existing ones, edit edit_image.def and rebuild a new image.
 Here we update ChromBERT-tools as an example:
 
@@ -63,15 +52,15 @@ ChromBERT-tools supports two ways to run:
 
 
 ## ChromBERT-tools CLI
-For detailed usage, please check the documentation: [chrombert-tools.readthedocs.io](https://chrombert-tools.readthedocs.io/en/latest/).
-
-For detailed usage examples, see the Jupyter notebooks in [`examples/cli/`](examples/cli/).
-Quick check:
+For usage examples, see the Jupyter notebooks in [`examples/cli/`](examples/cli/).
+you can run examples with Jupyter Notebook:
 ```bash
-cd examples/cli/
-singularity exec --nv chrombert.sif jupyter-notebook # start Jupyter Notebook with GPU support
+git clone https://github.com/TongjiZhanglab/ChromBERT-tools.git
+cd ChromBERT-tools/examples/
+singularity exec --nv /path/to/chrombert.sif jupyter-notebook # start Jupyter Notebook with GPU support
 ```
 
+For detailed usage, please check the documentation: [chrombert-tools.readthedocs.io](https://chrombert-tools.readthedocs.io/en/latest/).
 ### Generation of regulation-informed embeddings
 - [embed_cistrome](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_cistrome.html): Extract cistrome embeddings for specified regions  
 - [embed_gene](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_gene.html): Extract gene embeddings  
