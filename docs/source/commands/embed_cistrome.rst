@@ -60,7 +60,7 @@ Optional Parameters
    Output directory (default: ``./output``).
 
 ``--batch-size``
-   Region batch size (default: 4).
+   Region batch size (default: 64).
 
 ``--num-workers``
    Number of dataloader workers (default: 8).
@@ -71,7 +71,7 @@ Optional Parameters
 Output Files
 ============
 
-``cistrome_emb_on_region.hdf5``
+``cistrome_emb_region_aware.hdf5``
    HDF5 file containing cistrome embeddings for each region.
 
    .. code-block:: python
@@ -79,12 +79,12 @@ Output Files
       import h5py
 
       # Example: if you specify --cistrome "CTCF:K562;H3K27ac:K562;GSM1208591"
-      with h5py.File("cistrome_emb_on_region.hdf5", "r") as f:
+      with h5py.File("cistrome_emb_region_aware.hdf5", "r") as f:
           emb1 = f["/emb/ctcf:k562"][:]
           emb2 = f["/emb/h3k27ac:k562"][:]
           emb3 = f["/emb/gsm1208591"][:]
 
-``mean_cistrome_emb.pkl``
+``cistrome_emb_mean.pkl``
    Python dictionary containing mean embeddings for each cistrome.
 
    .. code-block:: python
@@ -92,7 +92,7 @@ Output Files
       import pickle
 
       # Example: if you specify --cistrome "CTCF:K562;H3K27ac:K562;GSM1208591"
-      with open("mean_cistrome_emb.pkl", "rb") as f:
+      with open("cistrome_emb_mean.pkl", "rb") as f:
           mean_embs = pickle.load(f)
 
       # mean_embs = {"ctcf:k562": array([...]), "h3k27ac:k562": array([...]), ...}

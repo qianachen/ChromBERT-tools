@@ -113,8 +113,8 @@ Training Outputs (if trained)
 ``dataset/``
    Training dataset directory
 
-   * ``up_region.csv``: Regions more accessible in this cell type
-   * ``nochange_region.csv``: Regions with no accessibility change
+   * ``highly_accessible_region.csv``: Regions more accessible in this cell type
+   * ``background_region.csv``: Regions with no accessibility change
 
 ``train/try_XX_seed_YY/``
    Training outputs for attempt XX with seed YY
@@ -125,7 +125,7 @@ Training Outputs (if trained)
 Embedding Outputs
 -----------------
 
-``cell_specific_gene_embs_dict.pkl``
+``gene_emb.pkl``
    Dictionary mapping genes to cell-type-specific embeddings.
 
    .. code-block:: python
@@ -133,7 +133,7 @@ Embedding Outputs
       import pickle
 
       # Example: if you specify --gene "BRCA1;TP53;MYC;ENSG00000170921"
-      with open("cell_specific_gene_embs_dict.pkl", "rb") as f:
+      with open("gene_emb.pkl", "rb") as f:
           embeddings = pickle.load(f)
 
       # embeddings = {"brca1": array([...]), "tp53": array([...]), ...}

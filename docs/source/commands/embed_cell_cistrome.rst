@@ -119,8 +119,8 @@ Training Outputs (if trained)
 ``dataset/``
    Training dataset directory
 
-   * ``up_region.csv``: Regions more accessible in this cell type
-   * ``nochange_region.csv``: Regions with no accessibility change
+   * ``highly_accessible_region.csv``: Regions more accessible in this cell type
+   * ``background_region.csv``: Regions with no accessibility change
 
 ``train/try_XX_seed_YY/``
    Training outputs for attempt XX with seed YY
@@ -131,7 +131,7 @@ Training Outputs (if trained)
 Embedding Outputs
 -----------------
 
-``cell_specific_cistrome_emb_on_region.hdf5``
+``cistrome_emb_region_aware.hdf5``
    HDF5 file containing cell-type-specific cistrome embeddings per region.
 
    .. code-block:: python
@@ -139,12 +139,12 @@ Embedding Outputs
       import h5py
 
       # Example: if you specify --cistrome "CTCF:K562;H3K27ac:K562;GSM1208591"
-      with h5py.File("cell_specific_cistrome_emb_on_region.hdf5", "r") as f:
+      with h5py.File("cistrome_emb_region_aware.hdf5", "r") as f:
           emb1 = f["/emb/ctcf:k562"][:]
           emb2 = f["/emb/h3k27ac:k562"][:]
           emb3 = f["/emb/gsm1208591"][:]
 
-``cell_specific_mean_cistrome_emb.pkl``
+``cistrome_emb_mean.pkl``
    Mean cell-type-specific cistrome embeddings.
 
    .. code-block:: python
@@ -152,7 +152,7 @@ Embedding Outputs
       import pickle
 
       # Example: if you specify --cistrome "CTCF:K562;H3K27ac:K562;GSM1208591"
-      with open("cell_specific_mean_cistrome_emb.pkl", "rb") as f:
+      with open("cistrome_emb_mean.pkl", "rb") as f:
           mean_embeddings = pickle.load(f)
 
       # mean_embeddings = {"ctcf:k562": array([...]), "h3k27ac:k562": array([...]), "gsm1208591": array([...]), ...}

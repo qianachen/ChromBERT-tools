@@ -123,8 +123,8 @@ Training Outputs (if trained)
 ``dataset/``
    Training dataset directory
    
-   * ``up_region.csv``: Regions more accessible in this cell type
-   * ``nochange_region.csv``: Regions with no accessibility change
+   * ``highly_accessible_region.csv``: Regions more accessible in this cell type
+   * ``background_region.csv``: Regions with no accessibility change
 
 ``train/try_XX_seed_YY/``
    Training outputs for attempt XX with seed YY
@@ -135,24 +135,24 @@ Training Outputs (if trained)
 Embedding Outputs
 -----------------
 
-``cell_specific_regulator_emb_on_region.hdf5``
+``regulator_emb_region_aware.hdf5``
    HDF5 file with cell-type-specific regulator embeddings per region
 
    .. code-block:: python
 
       import h5py
-      with h5py.File('cell_specific_regulator_emb_on_region.hdf5', 'r') as f:
+      with h5py.File('regulator_emb_region_aware.hdf5', 'r') as f:
           ctcf_emb = f['/emb/ctcf'][:]
           myc_emb = f['/emb/myc'][:]
           tp53_emb = f['/emb/tp53'][:]
 
-``cell_specific_mean_regulator_emb.pkl``
+``regulator_emb_mean.pkl``
    Mean cell-type-specific regulator embeddings
 
    .. code-block:: python
       
       import pickle
-      with open('cell_specific_mean_regulator_emb.pkl', 'rb') as f:
+      with open('regulator_emb_mean.pkl', 'rb') as f:
           mean_embeddings = pickle.load(f)
       # mean_embeddings = {'ezh2': array([...]), 'myc': array([...]), 'tp53': array([...]), ...}
 

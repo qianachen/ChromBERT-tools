@@ -74,6 +74,9 @@ Output Files
 ``results_prob_df.csv``
    Imputed peak probabilities.
 
+``*.bw``
+   Imputed signal track(factor_celltype.bw)
+
 ``overlap_region.bed``
    Regions that overlap with ChromBERT regions (see ``<chrombert-cache-dir>/config/*region.bed``).
 

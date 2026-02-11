@@ -112,8 +112,8 @@ Training Outputs (if trained)
 ``dataset/``
    Training dataset directory
 
-   * ``up_region.csv``: Regions more accessible in this cell type
-   * ``nochange_region.csv``: Regions with no accessibility change
+   * ``highly_accessible_region.csv``: Regions more accessible in this cell type
+   * ``background_region.csv``: Regions with no accessibility change
 
 ``train/try_XX_seed_YY/``
    Training outputs for attempt XX with seed YY
@@ -124,7 +124,7 @@ Training Outputs (if trained)
 Embedding Outputs
 -----------------
 
-``cell_specific_overlap_region_emb.npy``
+``region_emb.npy``
    NumPy array of cell-type-specific region embeddings (shape: ``[n_regions, 768]``).
 
 ``overlap_region.bed``

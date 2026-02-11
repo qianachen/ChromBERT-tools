@@ -60,7 +60,7 @@ Optional Parameters
    Output directory (default: ``./output``).
 
 ``--batch-size``
-   Region batch size (default: 4).
+   Region batch size (default: 64).
 
 ``--num-workers``
    Number of dataloader workers (default: 8).
@@ -71,7 +71,7 @@ Optional Parameters
 Output Files
 ============
 
-``regulator_emb_on_region.hdf5``
+``regulator_emb_region_aware.hdf5``
    HDF5 file containing regulator embeddings for each region.
 
    .. code-block:: python
@@ -79,19 +79,19 @@ Output Files
       import h5py
 
       # Example: if you specify --regulator "CTCF;MYC;TP53"
-      with h5py.File("regulator_emb_on_region.hdf5", "r") as f:
+      with h5py.File("regulator_emb_region_aware.hdf5", "r") as f:
           emb1 = f["/emb/ctcf"][:]
           emb2 = f["/emb/myc"][:]
           emb3 = f["/emb/tp53"][:]
 
-``mean_regulator_emb.pkl``
+``regulator_emb_mean.pkl``
    Python dictionary containing mean embeddings for each regulator.
 
    .. code-block:: python
 
       import pickle
 
-      with open("mean_regulator_emb.pkl", "rb") as f:
+      with open("regulator_emb_mean.pkl", "rb") as f:
           mean_embeddings = pickle.load(f)
 
       # mean_embeddings = {"ctcf": array([...]), "myc": array([...]), ...}
