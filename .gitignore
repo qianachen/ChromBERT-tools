@@ -11,5 +11,8 @@ examples/data/*expression.csv
 
 # Python egg info
 chrombert_tools.egg-info/
-chrombert_hf/*
+chrombert_hf/chrombert*
+chrombert_hf/*.ipynb
+chrombert_hf/tmp
+chrombert_hf/dataset_*
 chrombert_tools_old/*
