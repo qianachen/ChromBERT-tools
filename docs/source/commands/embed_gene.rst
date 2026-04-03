@@ -66,7 +66,7 @@ Optional Parameters
 Output Files
 ============
 
-``embs_dict.pkl``
+``gene_emb.pkl``
    Python dictionary mapping genes to 768-dimensional embeddings.
 
    .. code-block:: python
@@ -74,7 +74,7 @@ Output Files
       import pickle
 
       # Example: if you specify --gene "BRCA1;TP53;MYC;ENSG00000170921"
-      with open("embs_dict.pkl", "rb") as f:
+      with open("gene_emb.pkl", "rb") as f:
           embeddings = pickle.load(f)
 
       # embeddings = {"brca1": array([...]), "tp53": array([...]), ...}

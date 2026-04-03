@@ -2,87 +2,117 @@
 Installation
 ============
 
-ChromBERT-tools is a lightweight toolkit that exposes core ChromBERT functionality through easy-to-use command-line tools (CLI). To use ChromBERT-tools, you need to install:
+ChromBERT-tools depends on the ChromBERT runtime environment (packages + pre-trained model files). The **official
+Singularity/Apptainer image is the easiest option**, and it **already includes ChromBERT-tools**.
 
-1. ChromBERT dependencies
-2. ChromBERT datasets
-3. ChromBERT-tools package
+This page describes the recommended setup:
+
+1. Pull the ChromBERT container image (recommended)
+2. Download ChromBERT pre-trained models and annotation files
+3. (Optional) Update packages inside the container image
+4. (Optional) Install ChromBERT-tools from source on the host
 
 
-Installing ChromBERT Dependencies
-==================================
-
-If you have already installed ChromBERT dependencies, you can skip this step and proceed to :ref:`installing-chrombert-dataset`.
-
-Using Singularity Image (Recommended)
---------------------------------------
-
-For direct use of these CLI tools, it is recommended to utilize the ChromBERT Singularity image. We provide a pre-built Singularity image available: `chrombert.sif <https://drive.google.com/file/d/1ePmDK6DANSq-zkRgVBTxSBnKBZk-cEzM/view?usp=sharing>`_. **These images include almost all packages needed by ChromBERT and ChromBERT-tools**, including: flash-attention-2, transformers, pytorch, and other dependencies.
+-------------------------------
+1) ChromBERT environment (recommended)
+-------------------------------
 
 Installing Singularity/Apptainer
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+================================
 
-First, install ``singularity`` (or ``Apptainer``):
+First, install ``Apptainer`` (or ``Singularity``):
 
 .. code-block:: bash
 
    conda install -c conda-forge apptainer
 
-Testing the Singularity Image
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-Then you can test whether it was successfully installed:
+Pulling the official image (recommended)
+========================================
 
-.. code-block:: bash
-
-   singularity exec --nv /path/to/chrombert.sif python -c "import chrombert; print('hello chrombert')"
-   singularity exec --nv /path/to/chrombert.sif chrombert-tools
-
-Installing from Source
-----------------------
-
-If you want to install from source and use development mode, you can follow the instructions in the `ChromBERT repository <https://github.com/TongjiZhanglab/ChromBERT>`_.
-
-
-.. _installing-chrombert-dataset:
-
-Installing ChromBERT Dataset
-=============================
-If you have already installed ChromBERT datasets, you can skip this step and proceed to :ref:`installing-chrombert-tools`.
-
-ChromBERT requires pre-trained models and annotation data files. These files should be downloaded from Hugging Face to ``~/.cache/chrombert/data``. Supported Genomes and Resolutions:
-
-* **hg38** (Human): 200bp, 1kb, 2kb, 4kb resolutions
-* **mm10** (Mouse): 1kb resolution
-
-To download the required datasets:
+Pull the image from ORAS:
 
 .. code-block:: bash
 
-   chrombert_prepare_env --genome <genome> --resolution <resolution>
+   apptainer pull chrombert.sif oras://docker.io/chenqianqian515/chrombert:20260202
 
-Using a Hugging Face Mirror
-----------------------------
 
-If you're experiencing connectivity issues with Hugging Face, you can use the ``--hf-endpoint`` option to connect to an available mirror:
+Optional: download the image from Google Drive:
 
-.. code-block:: bash
+- ``chrombert.sif`` (Google Drive): https://drive.google.com/file/d/14I-BQxrBNPwdZn-TKaG0Z8lpNiJlUd1f/view?usp=drive_link
 
-   chrombert_prepare_env --genome <genome> --resolution <resolution> --hf-endpoint <Hugging Face endpoint>
 
-If you're using the ChromBERT Singularity image, you can run:
+Quick check
+===========
 
 .. code-block:: bash
 
-   singularity exec --nv /path/to/chrombert.sif chrombert_prepare_env --genome <genome> --resolution <resolution> --hf-endpoint <Hugging Face endpoint>
+   singularity exec /path/to/chrombert.sif python -c "import chrombert; print('hello chrombert')"  # may take some time on first run
+   singularity exec /path/to/chrombert.sif chrombert-tools
 
 
-.. _installing-chrombert-tools:
+-----------------------------------------
+2) ChromBERT pre-trained models files
+-----------------------------------------
 
-Installing ChromBERT-tools
+ChromBERT requires pre-trained models and annotation data. These files will be downloaded to ``~/.cache/chrombert/data``.
+
+Supported genomes and resolutions:
+
+* **hg38** (Human): 200bp, 1kb, 2kb, 4kb
+* **mm10** (Mouse): 1kb
+
+
+Download the required files
 ===========================
 
-Clone the repository and install:
+.. code-block:: bash
+
+   singularity exec /path/to/chrombert.sif chrombert_prepare_env --genome hg38 --resolution 1kb
+
+
+Using a Hugging Face mirror
+===========================
+
+If Hugging Face is slow or unreachable, add ``--hf-endpoint``:
+
+.. code-block:: bash
+
+   singularity exec /path/to/chrombert.sif chrombert_prepare_env --genome hg38 --resolution 1kb --hf-endpoint <Hugging Face endpoint>
+
+
+------------------------------------------------------------
+3) (Optional) Update the Singularity image (ChromBERT-tools)
+------------------------------------------------------------
+
+The official image already includes ChromBERT-tools. If you need to install additional packages or update ChromBERT-tools
+to the latest version, edit ``edit_image.def`` and rebuild a new image.
+
+Example: rebuild a new image with updated ChromBERT-tools
+=========================================================
+
+.. code-block:: bash
+
+   git clone https://github.com/TongjiZhanglab/ChromBERT-tools.git
+   cd ChromBERT-tools
+   apptainer build <new_image_name>.sif edit_image.def
+
+
+------------------------------------------------
+4) (Optional, host/dev) Install from source
+------------------------------------------------
+
+This option is intended for **development** (e.g., editing the code on the host, running tests, or contributing).
+If you only want to *use* ChromBERT-tools, we recommend the container workflow above.
+
+.. note::
+
+   A host installation requires a working **ChromBERT environment** (runtime dependencies).
+   Please follow the setup instructions in the `ChromBERT repository <https://github.com/TongjiZhanglab/ChromBERT>`_ first.
+
+
+Installing ChromBERT-tools on the host
+======================================
 
 .. code-block:: bash
 
@@ -90,19 +120,41 @@ Clone the repository and install:
    cd ChromBERT-tools
    pip install .
 
-Verifying Installation
------------------------
 
-To verify that ChromBERT-tools was installed correctly, run:
+Or install in editable (development) mode:
+
+.. code-block:: bash
+
+   pip install -e .
+
+
+Verifying the host installation
+===============================
 
 .. code-block:: bash
 
    chrombert-tools
 
-You should see a list of available commands and their descriptions.
+
+Note: downloading models/annotations is still required
+=====================================================
+
+Even with a host installation, you still need to download ChromBERT pre-trained models and annotations to
+``~/.cache/chrombert/data``:
+
+.. code-block:: bash
+
+   chrombert_prepare_env --genome hg38 --resolution 1kb
+
+
+If Hugging Face is slow or unreachable:
+
+.. code-block:: bash
+
+   chrombert_prepare_env --genome hg38 --resolution 1kb --hf-endpoint <Hugging Face endpoint>
+
 
 Next Steps
 ==========
 
 Once installation is complete, check out the :doc:`usage` section to learn how to use ChromBERT-tools for your analysis.
-

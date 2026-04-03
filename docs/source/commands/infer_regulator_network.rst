@@ -69,7 +69,7 @@ Optional Parameters
    ChromBERT cache directory (default: ``~/.cache/chrombert/data``). If your cache is located elsewhere, set this path accordingly.
 
 ``--quantile``
-   Quantile threshold for cosine-similarity edges (default: 0.99).
+   Quantile threshold for cosine-similarity edges (default: 0.98).
 
 ``--k-hop``
    k-hop radius for subnetwork plotting (default: 1).

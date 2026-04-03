@@ -66,14 +66,14 @@ Optional Parameters
 Output Files
 ============
 
-``overlap_region_emb.npy``
+``region_emb.npy``
    NumPy array containing region embeddings (shape: ``[n_regions, 768]``).
 
    .. code-block:: python
 
       import numpy as np
 
-      embeddings = np.load("overlap_region_emb.npy")
+      embeddings = np.load("region_emb.npy")
       print(embeddings.shape)  # (n_regions, 768)
 
 ``overlap_region.bed``

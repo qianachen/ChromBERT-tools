@@ -2,12 +2,12 @@
 infer_cell_key_regulator
 ============================
 
-Infer cell-type-specific regulator-regulator networks.
+Infer cell-type-specific key regulators.
 
 Overview
 ========
 
-The ``infer_cell_key_regulator`` command fine-tunes ChromBERT on cell-type-specific accessibility data (BigWig + peaks) and then infers a cell-type-specific key regulators. If a fine-tuned checkpoint is provided, fine-tuning is skipped and the regulator-regulator network is inferred directly from the checkpoint.
+The ``infer_cell_key_regulator`` command fine-tunes ChromBERT on cell-type-specific accessibility data (BigWig + peaks) and then infers cell-type-specific key regulators. If a fine-tuned checkpoint is provided, fine-tuning is skipped and the key regulators are inferred directly from the checkpoint.
 
 Basic Usage
 ===========
