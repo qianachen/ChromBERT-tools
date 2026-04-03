@@ -1,25 +1,22 @@
 import os
 import numpy as np
 import pandas as pd
-import chrombert
 import torch
 import json
 import glob
 import lightning.pytorch as pl
-from chrombert import ChromBERTFTConfig, DatasetConfig
-from .utils import set_seed
-from .utils import bw_getSignal_bins, split_data
+from chrombert_hf import ChromBERTFTConfig, DatasetConfig, LitChromBERTFTDataModule, TrainConfig
+from .utils import set_seed, bw_getSignal_bins, split_data, overlap_region,get_model_name
 from lightning.pytorch.callbacks import TQDMProgressBar
-from chrombert.scripts.chrombert_make_dataset import process
+import gc
 
 def make_dataset(peak, bw, d_odir, files_dict, mode):
     # 1.prepare_dataset
     total_peak_process = (
-        process(peak, files_dict["chrombert_region_file"], mode="region")[["chrom", "start", "end", "build_region_index"]]
+        overlap_region(peak, files_dict["chrombert_region_file"], d_odir)
         .drop_duplicates()
         .reset_index(drop=True)
     )
-    total_peak_process.to_csv(f"{d_odir}/chrombert_region_overlap_peak.csv", index=False)
     print(f"Total regions: {len(total_peak_process)}")
 
     # 2. scan signal
@@ -120,7 +117,7 @@ def init_datamodule(d_odir, args, files_dict, ignore_object=None, task="general"
     # 2. init datamodule
     if args.mode == "fast" and task != 'gep':
         ds = data_config.init_dataset(supervised_file=os.path.join(d_odir, "train_sampled.csv"))
-        data_module = chrombert.LitChromBERTFTDataModule(
+        data_module = LitChromBERTFTDataModule(
             config=data_config,
             train_params={"supervised_file": f"{d_odir}/train_sampled.csv"},
             val_params={"supervised_file": f"{d_odir}/valid_sampled.csv"},
@@ -128,7 +125,7 @@ def init_datamodule(d_odir, args, files_dict, ignore_object=None, task="general"
         )
     else:
         ds = data_config.init_dataset(supervised_file=os.path.join(d_odir, "train.csv"))
-        data_module = chrombert.LitChromBERTFTDataModule(
+        data_module = LitChromBERTFTDataModule(
             config=data_config,
             train_params={"supervised_file": f"{d_odir}/train.csv"},
             val_params={"supervised_file": f"{d_odir}/valid.csv"},
@@ -165,6 +162,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
     if task == "gep":
         model_config = ChromBERTFTConfig(
             genome=args.genome,
+            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
             task="gep",
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
@@ -173,6 +171,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
     else:
         model_config = ChromBERTFTConfig(
             genome=args.genome,
+            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
             task=task,
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
@@ -190,7 +189,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
     accumulate_grad_batches = 64
     patience = 10 if task == "gep" else 5
     
-    train_config = chrombert.finetune.TrainConfig(
+    train_config = TrainConfig(
         kind=train_kind,
         loss=loss,
         max_epochs=max_epochs,
@@ -263,8 +262,29 @@ def model_eval(train_odir, data_module, model_config, cal_metrics):
     test_metrics['ft_ckpt'] = ft_ckpt
     with open(os.path.join(train_odir, "eval_performance.json"), "w") as f:
         json.dump(test_metrics, f)
+
+    batch = None
+    preds = None
+    test_preds = None
+    test_labels = None
+    dl_test = None
+    dc_test = None
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
     return model_tuned, test_metrics
 
+def cleanup_memory(*objs):
+    for obj in objs:
+        try:
+            del obj
+        except Exception:
+            pass
+    gc.collect()
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+        
 def retry_train(args, files_dict, cal_metrics, metcic='pearsonr', min_threshold=0.2, 
                 train_kind='regression', ignore_object=None, task="general",odir=None):
     """
@@ -303,6 +323,10 @@ def retry_train(args, files_dict, cal_metrics, metcic='pearsonr', min_threshold=
     for attempt in range(max_retries + 1):
         trial_seed = base_seed + attempt
         set_seed(trial_seed)
+        data_module = None
+        model_config = None
+        model_tuned = None
+        test_metrics = None
 
         # Isolate each attempt's outputs
         train_odir_try = os.path.join(train_odir, f"try_{attempt:02d}_seed_{trial_seed}")
@@ -342,11 +366,28 @@ def retry_train(args, files_dict, cal_metrics, metcic='pearsonr', min_threshold=
                 f"Poor/unstable run ({metcic}={pcc}). "
                 "Retrying with a different seed due to random initialization and stochastic optimization..."
             )
+            if model_tuned is not best_model:
+                cleanup_memory(model_tuned, data_module, model_config, test_metrics)
+                model_tuned = None
+            data_module = None
+            model_config = None
+            test_metrics = None
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
         except Exception as e:
             last_err = e
             print(f"Attempt failed with error: {repr(e)}")
             print("Retrying with a different seed...")
+            cleanup_memory(model_tuned, data_module, model_config, test_metrics)
+            model_tuned = None
+            data_module = None
+            model_config = None
+            test_metrics = None
+            gc.collect()
+            if torch.cuda.is_available():
+                torch.cuda.empty_cache()
 
     # Finalize
     if best_model is None:

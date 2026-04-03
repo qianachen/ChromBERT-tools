@@ -6,8 +6,9 @@ warnings.filterwarnings('ignore', category=UserWarning, module='nxviz')
 
 __version__ = "1.0.0"
 
-
-from .api.embed_gene import embed_gene
+from .cli import make_dataset
+from .cli import check_region_file
+# from .api.embed_gene import embed_gene
 from .api.embed_cistrome import embed_cistrome
 from .api.embed_region import embed_region
 from .api.embed_regulator import embed_regulator
@@ -17,7 +18,7 @@ from .api.infer_ep import infer_ep
 
 __all__ = [
     "__version__",
-    "embed_gene",
+    # "embed_gene",
     "embed_cistrome",
     "embed_region",
     "embed_regulator",

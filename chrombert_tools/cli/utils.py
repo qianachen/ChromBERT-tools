@@ -9,6 +9,7 @@ import glob
 import torch
 import re
 import random
+from chrombert_hf.download_data import download
 from sklearn.metrics.pairwise import cosine_similarity
 
 def _nd_from_genome(genome: str) -> str:
@@ -19,6 +20,31 @@ def _nd_from_genome(genome: str) -> str:
         return "5k"
     raise ValueError(f"Genome {genome} not supported!")
 
+def get_model_name(genome: str, resolution: str) -> str:
+    if genome == "hg38":
+        if resolution == "1kb":
+            return "TongjiZhanglab/chrombert-human-1kb"
+        elif resolution == "2kb":
+            return "TongjiZhanglab/chrombert-human-2kb"
+        elif resolution == "4kb":
+            return "TongjiZhanglab/chrombert-human-4kb"
+        elif resolution == "200bp":
+            return "TongjiZhanglab/chrombert-human-200bp"
+    elif genome == "mm10":
+        return "TongjiZhanglab/chrombert-mouse-1kb"
+    else:
+        raise ValueError(f"Genome {genome} not supported.")
+
+def get_tf_bind_model_name(genome: str, resolution: str) -> str:
+    if genome == "hg38":
+        assert resolution == "1kb", "Human only supports 1kb resolution for tf-bind model."
+        return "TongjiZhanglab/chrombert-human-1kb-tf"
+    elif genome == "mm10":
+        assert resolution == "1kb", "Mouse only supports 1kb resolution for tf-bind model."
+        return "TongjiZhanglab/chrombert-mouse-1kb-tf"
+    else:
+        raise ValueError(f"Genome {genome} not supported.")
+
 def resolve_paths(args):
     """
     Resolve all required ChromBERT files based on:
@@ -28,65 +54,71 @@ def resolve_paths(args):
     """
     n_d = _nd_from_genome(args.genome)
     cache_path = os.path.expanduser(args.chrombert_cache_dir)
-    # region bed
-    chrombert_region_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_{args.resolution}_region.bed")
+    if not os.path.exists(cache_path):
+        print(f"There is no ChromBERT data in {cache_path}, downloading...")
+        download(basedir=cache_path,genome=args.genome,resolution=args.resolution)
+    
+    if os.path.exists(os.path.join(cache_path, f"data_config_{args.genome}_{args.resolution}.json")):
+        data_dict = json.load(open(os.path.join(cache_path, f"data_config_{args.genome}_{args.resolution}.json")))
+    else:
+        # region bed
+        chrombert_region_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_{args.resolution}_region.bed")
 
-    # regulator file
-    chrombert_regulator_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_regulators_list.txt")
-    
-    # factor file
-    chrombert_factor_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_factors_list.txt")
+        # regulator file
+        chrombert_regulator_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_regulators_list.txt")
+        
+        # factor file
+        chrombert_factor_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_factors_list.txt")
 
-    # hdf5
-    hdf5_file = os.path.join(cache_path, f"{args.genome}_{n_d}_{args.resolution}.hdf5")
+        # hdf5
+        hdf5_file = os.path.join(cache_path, f"{args.genome}_{n_d}_{args.resolution}.hdf5")
+        
+        # ckpt
+        pretrain_ckpt = os.path.join(cache_path, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_pretrain.ckpt")
+        
+        # mask matrix
+        mtx_mask = os.path.join(cache_path, "config", f"{args.genome}_{n_d}_mask_matrix.tsv")
+        
+        # region embedding file
+        region_emb_file = os.path.join(cache_path, f"anno/{args.genome}_{args.resolution}_region_emb.npy")
+        
+        # chrombert_gene_meta
+        gene_meta_tsv = os.path.join(cache_path, f"anno/{args.genome}_{args.resolution}_gene_meta.tsv")
+        
+        # chrombert base chromatin accessibility signal
+        base_ca_signal = os.path.join(cache_path, "anno", f"{args.genome}_{args.resolution}_accessibility_signal_mean.npy")
+        
+        # chrombert meta file
+        meta_file = os.path.join(cache_path, "config", f"{args.genome}_{n_d}_meta.json")
+        
+        # prompt ckpt
+        prompt_ckpt = os.path.join(cache_path, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_prompt_cistrome.ckpt")
+        
+        # Override with user-provided paths if available
+        chrombert_region_file = getattr(args, "chrombert_region_file", None) or chrombert_region_file
+        chrombert_regulator_file = getattr(args, "chrombert_regulator_file", None) or chrombert_regulator_file
+        chrombert_factor_file = getattr(args, "chrombert_factor_file", None) or chrombert_factor_file
+        hdf5_file = getattr(args, "hdf5_file", None) or hdf5_file
+        pretrain_ckpt = getattr(args, "pretrain_ckpt", None) or pretrain_ckpt
+        mtx_mask = getattr(args, "mtx_mask", None) or mtx_mask
+        region_emb_file = getattr(args, "chrombert_region_emb_file", None) or region_emb_file
+        gene_meta_tsv = getattr(args, "chrombert_gene_meta", None) or gene_meta_tsv
+        base_ca_signal = getattr(args, "base_ca_signal", None) or base_ca_signal
+        meta_file = getattr(args, "meta_file", None) or meta_file
+        data_dict = {"chrombert_region_file": chrombert_region_file,
+                    "chrombert_regulator_file": chrombert_regulator_file,
+                    "chrombert_factor_file": chrombert_factor_file,
+                    "hdf5_file": hdf5_file,
+                    "pretrain_ckpt": pretrain_ckpt,
+                    "mtx_mask": mtx_mask,
+                    "region_emb_npy": region_emb_file,
+                    "gene_meta_tsv": gene_meta_tsv,
+                    "base_ca_signal": base_ca_signal,
+                    "meta_file": meta_file,
+                    "prompt_ckpt": prompt_ckpt}
+        return data_dict
     
-    # ckpt
-    pretrain_ckpt = os.path.join(cache_path, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_pretrain.ckpt")
     
-    # mask matrix
-    mtx_mask = os.path.join(cache_path, "config", f"{args.genome}_{n_d}_mask_matrix.tsv")
-    
-    # region embedding file
-    region_emb_file = os.path.join(cache_path, f"anno/{args.genome}_{args.resolution}_region_emb.npy")
-    
-    # chrombert_gene_meta
-    gene_meta_tsv = os.path.join(cache_path, f"anno/{args.genome}_{args.resolution}_gene_meta.tsv")
-    
-    # chrombert base chromatin accessibility signal
-    base_ca_signal = os.path.join(cache_path, "anno", f"{args.genome}_{args.resolution}_accessibility_signal_mean.npy")
-    
-    # chrombert meta file
-    meta_file = os.path.join(cache_path, "config", f"{args.genome}_{n_d}_meta.json")
-    
-    # prompt ckpt
-    prompt_ckpt = os.path.join(cache_path, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_prompt_cistrome.ckpt")
-    
-    # Override with user-provided paths if available
-    chrombert_region_file = getattr(args, "chrombert_region_file", None) or chrombert_region_file
-    chrombert_regulator_file = getattr(args, "chrombert_regulator_file", None) or chrombert_regulator_file
-    chrombert_factor_file = getattr(args, "chrombert_factor_file", None) or chrombert_factor_file
-    hdf5_file = getattr(args, "hdf5_file", None) or hdf5_file
-    pretrain_ckpt = getattr(args, "pretrain_ckpt", None) or pretrain_ckpt
-    mtx_mask = getattr(args, "mtx_mask", None) or mtx_mask
-    region_emb_file = getattr(args, "chrombert_region_emb_file", None) or region_emb_file
-    gene_meta_tsv = getattr(args, "chrombert_gene_meta", None) or gene_meta_tsv
-    base_ca_signal = getattr(args, "base_ca_signal", None) or base_ca_signal
-    meta_file = getattr(args, "meta_file", None) or meta_file
-
-    return {
-        "chrombert_region_file": chrombert_region_file,
-        "chrombert_regulator_file": chrombert_regulator_file,
-        "chrombert_factor_file": chrombert_factor_file,
-        "hdf5_file": hdf5_file,
-        "pretrain_ckpt": pretrain_ckpt,
-        "mtx_mask": mtx_mask,
-        "region_emb_npy": region_emb_file,
-        "gene_meta_tsv": gene_meta_tsv,
-        "base_ca_signal": base_ca_signal,
-        "meta_file": meta_file,
-        "prompt_ckpt": prompt_ckpt,
-    }
-
 def check_files(files_dict, required_keys=None):
     """
     Check if required files exist.
@@ -110,6 +142,45 @@ def check_files(files_dict, required_keys=None):
             + "\nHint: run `chrombert_prepare_env` or pass the missing path(s) explicitly."
         )
         raise FileNotFoundError(msg)
+    
+def make_dataset(focus_region,files_dict,odir):
+    """
+    Check if the region file is valid.
+    """
+    if focus_region.endswith(".bed"):
+        overlap_bed = overlap_region(focus_region, files_dict["chrombert_region_file"], odir)
+        if overlap_bed.shape[0] == 0:
+            raise ValueError("No overlap found between your regions and ChromBERT regions.")
+        
+    elif focus_region.endswith(".csv") or focus_region.endswith(".tsv"):
+        df = pd.read_csv(focus_region) if focus_region.endswith(".csv") else pd.read_csv(focus_region, sep="\t")
+        required = ["chrom", "start", "end"]
+        missing = [c for c in required if c not in df.columns]
+        if missing:
+            raise ValueError(
+                f"Missing columns in CSV/TSV: {missing}. Required columns: {required}."
+            )
+        if "build_region_index" in df.columns:
+            overlap_bed = df[required + ['build_region_index']].copy()
+            
+            overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
+        else:
+            # write a temp BED and reuse overlap_region
+            tmp_bed = f"{odir}/tmp_focus_regions.bed"
+            df[required].to_csv(tmp_bed, sep="\t", header=False, index=False)
+            overlap_bed = overlap_region(tmp_bed, files_dict["chrombert_region_file"], odir)
+            if overlap_bed.shape[0] == 0:
+                raise ValueError("No overlap found between your regions and ChromBERT regions.")
+
+    else:
+        raise ValueError(f"Unsupported region file format: {focus_region}. Only .bed, .csv, and .tsv are supported.")
+    
+    model_input_df = pd.read_csv(files_dict["chrombert_region_file"], sep="\t", header=None, names=["chrom", "start", "end", "build_region_index"])
+    model_input_df["label"] = 0
+    model_input_df.loc[overlap_bed.build_region_index, "label"] = 1
+    model_input_df.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
+    
+    return model_input_df
     
 def check_region_file(focus_region,files_dict,odir):
     """

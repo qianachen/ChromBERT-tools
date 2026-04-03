@@ -75,7 +75,7 @@ def model_emb_func(args,files_dict,odir):
         kind = "GeneralDataset",
         supervised_file = f"{odir}/model_input.tsv",
         hdf5_file = files_dict["hdf5_file"],
-        batch_size = 4,
+        batch_size = args.batch_size,
         num_workers = 8,
     )
     dl = data_config.init_dataloader()

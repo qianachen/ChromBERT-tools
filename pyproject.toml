@@ -20,4 +20,4 @@ chrombert-tools = "chrombert_tools.cli:cli"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["chrombert_tools*"]
+include = ["chrombert_tools*","chrombert_hf*"]
