@@ -174,7 +174,7 @@ def run_impute(args, files_dict, odir, return_data=False):
         results_probs_dict[key] = torch.sigmoid(logits).to(dtype=torch.float32).numpy()
 
     results_pro_df = compute_and_save_results(
-        chrombert_regions, input_regions, results_probs_dict, overlap_bed, odir
+        chrombert_regions, input_regions, results_probs_dict, overlap_bed, odir, args.genome
     )
 
     report_impute(args, odir, overlap_bed)
@@ -187,7 +187,7 @@ def run_impute(args, files_dict, odir, return_data=False):
 # output
 # =========================
 
-def compute_and_save_results(chrombert_regions, input_regions, results_probs_dict, overlap_bed, odir):
+def compute_and_save_results(chrombert_regions, input_regions, results_probs_dict, overlap_bed, odir, genome="hg38"):
     chrombert_regions_array = np.concatenate(chrombert_regions, axis=0)[:, 1:]
     input_regions_array = np.concatenate(input_regions, axis=0)
     region_df = pd.DataFrame(
@@ -207,13 +207,13 @@ def compute_and_save_results(chrombert_regions, input_regions, results_probs_dic
         columns={"input_chrom": "chrom", "chrombert_start": "start", "chrombert_end": "end"},
         inplace=True,
     )
-    get_bw(bw_results_pro_df, odir)
+    get_bw(bw_results_pro_df, odir, genome=genome)
 
     return results_pro_df
 
 
-def get_bw(results_pro_df, odir):
-    chrom_sizes = bf.fetch_chromsizes("hg38")
+def get_bw(results_pro_df, odir, genome="hg38"):
+    chrom_sizes = bf.fetch_chromsizes(genome)
     chrom_order = list(chrom_sizes.keys())
 
     results_pro_df["chrom"] = pd.Categorical(
