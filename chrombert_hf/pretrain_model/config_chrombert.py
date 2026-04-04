@@ -88,7 +88,7 @@ class ChromBERTConfig(PretrainedConfig):
             print(f"Warning: no ckpt provided, use random initialization!")
         elif os.path.exists(ckpt):
             model.chrombert.load_ckpt(ckpt)
-            print(f"Load ckpt {ckpt} successfully!")
+            print(f"Load pretrained ckpt {ckpt} successfully!")
         else:
             print(f"Warning: ckpt {ckpt} not exists, use random initialization!")
         return model

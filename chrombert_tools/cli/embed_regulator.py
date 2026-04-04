@@ -1,41 +1,30 @@
 import os
-import re
-import click
 from types import SimpleNamespace
+import click
+from .utils import (
+    resolve_paths,
+    check_files,
+    check_region_file,
+    chrom_to_int_series,
+    overlap_regulator_func,
+)
+from .embed_utils import (
+    is_cell_specific, 
+    get_required_keys, 
+    build_dataloader, 
+    build_model_emb, 
+    build_cell_model_emb, 
+    generate_regulator_embeddings,
+)
 
-import numpy as np
-import pandas as pd
-import torch
-from tqdm import tqdm
 
-import chrombert
-from chrombert import ChromBERTFTConfig, DatasetConfig
-from chrombert.scripts.utils import HDF5Manager
-import pickle
-from .utils import resolve_paths, check_files, check_region_file, chrom_to_int_series, overlap_regulator_func
+# =========================
+# regulator embedding
+# =========================
 
+def prepare_region_and_regulator(args, files_dict, odir):
+    overlap_bed = check_region_file(args.region, files_dict, odir)
 
-def run(args, return_data=False):
-    odir = args.odir
-    os.makedirs(odir, exist_ok=True)
-
-    # mm10 resolution limit (only have 1kb data)
-    if args.genome.lower() == "mm10" and args.resolution != "1kb":
-        raise ValueError("mm10 currently only supports 1kb in this cache layout (adjust if you have more).")
-
-    files_dict = resolve_paths(args)
-    # Only check files needed by embed_regulator
-    check_files(files_dict, required_keys=[
-        "chrombert_region_file",
-        "chrombert_regulator_file", 
-        "hdf5_file",
-        "pretrain_ckpt"
-    ])
-
-    focus_region = args.region
-    overlap_bed = check_region_file(focus_region,files_dict,odir)
-
-    # chromosome mapping to integer
     first_chrom = str(overlap_bed["chrom"].iloc[0])
     if "chr" in first_chrom.lower():
         overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"].astype(str), args.genome)
@@ -47,91 +36,116 @@ def run(args, return_data=False):
     if len(regulator_idx_dict) == 0:
         raise ValueError("No requested regulators matched ChromBERT regulator list. Nothing to embed.")
 
-    # dataloader
-    data_config = DatasetConfig(
-        kind="GeneralDataset",
+    return overlap_bed, regulator_idx_dict
+
+def validate_args(args):
+    '''
+    Validate arguments
+    '''
+    if args.region is None:
+        raise ValueError("You must provide --region.")
+    
+    if args.regulator is None:
+        raise ValueError("You must provide --regulator.")
+
+    cell_mode = is_cell_specific(args)
+    # cell-specific mode check
+    if cell_mode:
+        if args.ft_ckpt is None and (args.cell_type_bw is None or args.cell_type_peak is None):
+            raise ValueError(
+                "For cell-specific embedding, provide either --ft-ckpt "
+                "or both --cell-type-bw and --cell-type-peak."
+            )
+
+def run_regulator_general(args, files_dict, odir, return_data=False):
+    '''
+    Generate regulator embeddings for pretrained model
+    '''
+    overlap_bed, regulator_idx_dict = prepare_region_and_regulator(args, files_dict, odir)
+    ds, dl = build_dataloader(
         supervised_file=f"{odir}/model_input.tsv",
         hdf5_file=files_dict["hdf5_file"],
         batch_size=args.batch_size,
         num_workers=args.num_workers,
     )
-    dl = data_config.init_dataloader()
-    ds = data_config.init_dataset()
-
-    # model
-    model_config = ChromBERTFTConfig(
-        genome=args.genome,
-        dropout=0,
-        task="general",
-        pretrain_ckpt=files_dict["pretrain_ckpt"],
-        mtx_mask=files_dict["mtx_mask"],
+    model_emb = build_model_emb(args, files_dict)
+    reg_means, reg_emb_dict = generate_regulator_embeddings(
+        ds, dl, model_emb, overlap_bed, regulator_idx_dict, odir, args.oname, return_data
     )
-    model = model_config.init_model().get_embedding_manager().cuda().bfloat16()
-
-    # save HDF5
-    shapes = {f"emb/{k}": [(len(ds), 768), np.float16] for k in regulator_idx_dict}
-    total_counts = 0
-    # save mean regulator emb
-    reg_sums = {name: np.zeros(768, dtype=np.float64) for name in regulator_idx_dict}
-    
-    reg_emb_dict = {}
-    with HDF5Manager(f"{odir}/{args.oname}_region_aware.hdf5",
-                     region=[(len(ds), 4), np.int64],
-                     **shapes) as h5:
-        with torch.no_grad():
-            for batch in tqdm(dl, total=len(dl)):
-                for k, v in batch.items():
-                    if isinstance(v, torch.Tensor):
-                        batch[k] = v.cuda()
-
-                model(batch)  # init cache inside embedding_manager
-
-                bs = batch["region"].shape[0]
-                start_idx = total_counts
-                total_counts += bs
-                end_idx = total_counts
-
-                batch_index = batch["build_region_index"].long().cpu().numpy().reshape(-1)
-                region = overlap_bed.iloc[start_idx:end_idx].values
-                assert (batch_index == region[:, -1].reshape(-1)).all(), "Batch index and region index do not match"
-
-                embs = {
-                    f"emb/{k}": model.get_regulator_embedding(k).float().cpu().numpy()
-                    for k in regulator_idx_dict
-                }
-                h5.insert(region=region, **embs)
-                
-                # Store for return if needed
-                if return_data:
-                    for k, v in embs.items():
-                        reg_name = k.replace("emb/", "")
-                        if reg_name not in reg_emb_dict:
-                            reg_emb_dict[reg_name] = []
-                        reg_emb_dict[reg_name].append(v)
-                
-                for reg_name, reg_idx in regulator_idx_dict.items():
-                    emb = model.get_regulator_embedding(reg_name)
-                    emb_np = emb.float().cpu().numpy()            
-                    reg_sums[reg_name] += emb_np.sum(axis=0)
-                    
-    # Concatenate collected data if return_data
-    if return_data:
-        for k in reg_emb_dict:
-            reg_emb_dict[k] = np.concatenate(reg_emb_dict[k], axis=0)
-            
-    reg_means = {
-        reg_name: (sum_vec / total_counts)
-        for reg_name, sum_vec in reg_sums.items()
-    }
-    out_pkl = os.path.join(odir, f"{args.oname}_mean.pkl")
-    with open(out_pkl, "wb") as f:
-        pickle.dump(reg_means, f)
-    print("Finished!")  
-    print("Saved mean regulator embeddings to pickle file:", out_pkl)
-    print("Region-aware regulator embeddings were saved to an HDF5 file:", f"{odir}/{args.oname}_region_aware.hdf5")
-    
+    report_regulator(args, odir, overlap_bed, cell_specific=False)
     if return_data:
         return reg_means, reg_emb_dict, overlap_bed
+
+
+def run_regulator_cell(args, files_dict, odir, return_data=False):
+    '''
+    Generate regulator embeddings for cell-type-specific model
+    '''
+    overlap_bed, regulator_idx_dict = prepare_region_and_regulator(args, files_dict, odir)
+    ds, dl = build_dataloader(
+        supervised_file=f"{odir}/model_input.tsv",
+        hdf5_file=files_dict["hdf5_file"],
+        batch_size=args.batch_size,
+        num_workers=args.num_workers,
+    )
+    model_emb = build_cell_model_emb(args, files_dict, odir)
+    reg_means, reg_emb_dict = generate_regulator_embeddings(
+        ds, dl, model_emb, overlap_bed, regulator_idx_dict, odir, args.oname, return_data
+    )
+    report_regulator(args, odir, overlap_bed, cell_specific=True)
+    if return_data:
+        return reg_means, reg_emb_dict, overlap_bed
+
+
+# =========================
+# report
+# =========================
+
+def report_regulator(args, odir, overlap_bed, cell_specific=False):
+    total_focus = sum(1 for _ in open(args.region))
+    no_overlap_region_len = (
+        sum(1 for _ in open(f"{odir}/no_overlap_region.bed"))
+        if os.path.exists(f"{odir}/no_overlap_region.bed")
+        else 0
+    )
+
+    print("\nFinished!")
+    print(
+        f"Focus region summary - total: {total_focus}, "
+        f"overlapping with ChromBERT: {overlap_bed.shape[0]}, "
+        f"non-overlapping: {no_overlap_region_len}"
+    )
+    print("Overlapping regions BED file:", f"{odir}/overlap_region.bed")
+    print("Non-overlapping regions BED file:", f"{odir}/no_overlap_region.bed")
+    print("Mean regulator embeddings saved to:", f"{odir}/mean_{args.oname}.pkl")
+    print("Region-aware regulator embeddings saved to:", f"{odir}/region_aware_{args.oname}.hdf5")
+    print("Embedding type:", "cell-specific" if cell_specific else "general")
+
+
+def run(args, return_data=False):
+    # Backward compatibility for API caller (which may not provide these attrs)
+    for attr, default in [
+        ("cell_type_bw", None),
+        ("cell_type_peak", None),
+        ("ft_ckpt", None),
+        ("mode", "fast"),
+        ("num_workers", 8),
+    ]:
+        if not hasattr(args, attr):
+            setattr(args, attr, default)
+
+    validate_args(args)
+    odir = args.odir
+    os.makedirs(odir, exist_ok=True)
+
+    files_dict = resolve_paths(args)
+    check_files(files_dict, required_keys=get_required_keys(args))
+
+    cell_mode = is_cell_specific(args)
+    if cell_mode:
+        return run_regulator_cell(args, files_dict, odir, return_data=return_data)
+    return run_regulator_general(args, files_dict, odir, return_data=return_data)
+
 
 @click.command(name="embed_regulator", context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--region", "region",
@@ -139,6 +153,18 @@ def run(args, return_data=False):
               required=True, help="Region file.")
 @click.option("--regulator", required=True,
               help="Regulators of interest, e.g. EZH2 or EZH2;BRD4. Use ';' to separate multiple regulators.")
+@click.option("--cell-type-bw", "cell_type_bw",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              required=False,
+              help="Cell type accessibility BigWig file. Used for cell-specific mode.")
+@click.option("--cell-type-peak", "cell_type_peak",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              required=False,
+              help="Cell type accessibility Peak BED file. Used for cell-specific mode.")
+@click.option("--ft-ckpt", "ft_ckpt",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              required=False, default=None, show_default=True,
+              help="Fine-tuned checkpoint. If provided, use cell-specific model and skip fine-tuning.")
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), help="Output directory.")
 @click.option("--oname", default="regulator_emb", show_default=True,
@@ -148,26 +174,46 @@ def run(args, return_data=False):
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), help="Genome.")
 @click.option("--resolution", default="1kb", show_default=True,
               type=click.Choice(["1kb", "200bp", "2kb", "4kb"], case_sensitive=False), help="Resolution.")
+@click.option("--mode", default="fast", show_default=True,
+              type=click.Choice(["fast", "full"], case_sensitive=False),
+              help="Used when training cell-specific model.")
 @click.option("--batch-size", default=64, show_default=True, type=int, help="Batch size.")
 @click.option("--num-workers", default=8, show_default=True, type=int, help="Dataloader workers.")
-
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
               default="~/.cache/chrombert/data",
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache dir (contains config/ checkpoint/ etc).")
 
-def embed_regulator(region, regulator, odir, oname, genome, resolution, batch_size, num_workers,
-        chrombert_cache_dir):
+def embed_regulator(
+    region,
+    regulator,
+    cell_type_bw,
+    cell_type_peak,
+    ft_ckpt,
+    odir,
+    oname,
+    genome,
+    resolution,
+    mode,
+    batch_size,
+    num_workers,
+    chrombert_cache_dir,
+):
     '''
-    Extract general regulator embeddings on specified regions
+    Extract regulator embeddings on specified regions.
+    Supports both general and cell-specific modes.
     '''
     args = SimpleNamespace(
         region=region,
         regulator=regulator,
+        cell_type_bw=cell_type_bw,
+        cell_type_peak=cell_type_peak,
+        ft_ckpt=ft_ckpt,
         odir=odir,
         oname=oname,
         genome=genome.lower(),
         resolution=resolution,
+        mode=mode,
         batch_size=batch_size,
         num_workers=num_workers,
         chrombert_cache_dir=chrombert_cache_dir,

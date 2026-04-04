@@ -9,6 +9,7 @@ import glob
 import torch
 import re
 import random
+import h5py
 from chrombert_hf.download_data import download
 from sklearn.metrics.pairwise import cosine_similarity
 
@@ -116,7 +117,7 @@ def resolve_paths(args):
                     "base_ca_signal": base_ca_signal,
                     "meta_file": meta_file,
                     "prompt_ckpt": prompt_ckpt}
-        return data_dict
+    return data_dict
     
     
 def check_files(files_dict, required_keys=None):
@@ -452,39 +453,7 @@ def cal_metrics_binary(preds, labels):
     }
     return metrics
 
-def model_eval(train_odir, data_module, model_config, cal_metrics):
-    ckpts = glob.glob(f"{train_odir}/**/checkpoints/*.ckpt", recursive=True)
-    if not ckpts:
-        raise FileNotFoundError(
-            f"No checkpoint found under {train_odir}. Please verify that training completed successfully."
-        )
-    ft_ckpt = os.path.abspath(max(ckpts, key=os.path.getmtime))
 
-    dc_test = data_module.test_config
-    dl_test = dc_test.init_dataloader(batch_size=4)
-
-    model_tuned = model_config.init_model(finetune_ckpt=ft_ckpt, dropout=0).eval().cuda()
-
-    test_preds = []
-    test_labels = []
-    for batch in dl_test:
-        with torch.no_grad():
-            for k, v in batch.items():
-                if isinstance(v, torch.Tensor):
-                    batch[k] = v.cuda()
-            preds = model_tuned(batch).cpu()
-            test_labels.append(batch["label"].cpu())
-            test_preds.append(preds)
-
-    test_preds = torch.cat(test_preds, dim=0).reshape(-1)
-    test_labels = torch.cat(test_labels, axis=0).reshape(-1)
-
-    test_metrics = cal_metrics(test_preds, test_labels)
-    print(f"ft_ckpt: {ft_ckpt}, test_metrics: {test_metrics}")
-    test_metrics['ft_ckpt'] = ft_ckpt
-    with open(os.path.join(train_odir, "eval_performance.json"), "w") as f:
-        json.dump(test_metrics, f)
-    return model_tuned, test_metrics
 
 
 def model_embedding(train_odir=None, model_config=None, ft_ckpt=None, model_tuned=None):
@@ -531,3 +500,95 @@ def set_seed(seed: int):
     # Keep these settings for speed; set deterministic=True if you want strict determinism.
     torch.backends.cudnn.deterministic = False
     torch.backends.cudnn.benchmark = True
+
+
+class HDF5Manager:
+    def __init__(self, o_file, chunks = True, **kwargs):
+        '''
+        Initializes an HDF5 file with specified datasets.
+
+        Parameters:
+        - o_file (str): The name of the output HDF5 file.
+        - chunks: If True, datasets will be chunked automatically. Else, it should be a positive integer (>=2), indicating the chunk size of first dimension. Or use none to disable chunking.
+        - kwargs (dict): Keyword arguments where each key is the dataset name and each value is the shape and dtype((*shapes), dtype) of the dataset.
+        '''
+        self.o_file = o_file
+        self.chunks = chunks
+        self.kwargs = kwargs
+        self.n_samples = 0
+        self.file = None
+
+    def __enter__(self):
+        # Open the HDF5 file in write mode
+        self.file = h5py.File(self.o_file, 'w')
+        # Create datasets based on provided shapes
+        for key, info in self.kwargs.items():
+            shape, dtype = info[0], info[1]
+            if self.chunks is True:
+                self.file.create_dataset(key, shape=shape, dtype = dtype, chunks = True, maxshape = (None, *shape[1:]))
+            elif self.chunks is None:
+                self.file.create_dataset(key, shape=shape, dtype = dtype)
+            else:
+                self.file.create_dataset(key, shape=shape, dtype = dtype, chunks = (self.chunks, *shape[1:]))
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        # Close the HDF5 file
+        if self.file:
+            self.file.close()
+
+    def insert(self, **data):
+        '''
+        Inserts data into the HDF5 file.
+
+        Parameters:
+        - data (dict): Keyword arguments where each key is the dataset name and each value is the data to be inserted.
+        
+        Raises:
+        - AssertionError: If keys in data do not match the datasets in the file.
+        - AssertionError: If the first dimension of all values is not the same.
+        - AssertionError: If inserting more samples than the dataset can hold.
+        ''' 
+        assert self.file is not None, "File is not open."
+        assert set(data.keys()) == set(self.kwargs.keys()), (
+            f"Please ensure all data are passed and correctly saved in the file. {set(self.kwargs.keys())-set(set(data.keys()))} not be save"
+        ) 
+        # Ensure all keys in data match the datasets in the file
+        assert all(key in self.file for key in data.keys()), \
+            "All keys in data must match the datasets in the file."
+        
+        # Ensure the first dimension of all values is the same
+        try:
+            samples = [data[key].shape[0] for key in data.keys()]
+        except:
+            samples = [1 for key in data.keys()]
+            
+        # samples = [data[key].shape[0] if hasattr(data[key], 'shape') else 1 for key in data.keys()]
+
+        assert len(set(samples)) == 1, "First dimension of all values should be the same."
+        
+        # Check if the total number of samples will exceed dataset size
+        new_samples = samples[0]
+        assert self.n_samples + new_samples <= self.file[list(data.keys())[0]].shape[0], \
+            "Inserting more samples than the dataset can hold."
+        
+        # Insert data into the datasets
+        for key in data.keys():
+            self.file[key][self.n_samples:self.n_samples + new_samples] = data[key]
+        
+        # Update sample counter
+        self.n_samples += new_samples
+
+# Example Usage
+if __name__ == "__main__":
+    shapes = {
+        'dataset1': (1000, 10),
+        'dataset2': (1000, 20)
+    }
+
+    data1 = np.random.rand(100, 10)
+    data2 = np.random.rand(100, 20)
+
+    with HDF5Manager('output.h5', **shapes) as manager:
+        manager.insert(dataset1=data1, dataset2=data2)
+        # You can call manager.insert multiple times as needed

@@ -56,7 +56,7 @@ from . import (
     # embed_cell_gene,
     embed_cell_cistrome,
     # embed_cell_region,
-    embed_cell_regulator,
+    # embed_cell_regulator,
     infer_ep,
     impute_cistrome,
     infer_regulator_network,
@@ -76,7 +76,7 @@ cli.add_command(embed_region_perturb.embed_region_perturb)
 # cli.add_command(embed_cell_gene.embed_cell_gene)
 cli.add_command(embed_cell_cistrome.embed_cell_cistrome)
 # cli.add_command(embed_cell_region.embed_cell_region)
-cli.add_command(embed_cell_regulator.embed_cell_regulator)
+# cli.add_command(embed_cell_regulator.embed_cell_regulator)
 cli.add_command(infer_ep.infer_ep)
 cli.add_command(infer_regulator_network.infer_regulator_network)
 cli.add_command(infer_cell_key_regulator.infer_cell_key_regulator)

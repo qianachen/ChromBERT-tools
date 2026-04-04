@@ -4,21 +4,14 @@ from types import SimpleNamespace
 import click
 import numpy as np
 import pandas as pd
-import torch
-from tqdm import tqdm
-from chrombert_hf import ChromBERTFTConfig, DatasetConfig, ChromBERTConfig
-from transformers import AutoModel
 from chrombert_hf.download_data import download
 from .utils import (
-    get_model_name,
     resolve_paths,
     check_files,
     check_region_file,
     overlap_gene_map_region,
-    cal_metrics_regression
 )
-from .utils_train_cell import make_dataset, retry_train
-
+from .embed_utils import is_cell_specific, get_required_keys, build_dataloader, build_model_emb, build_cell_model_emb, generate_embeddings
 
 # =========================
 # embed utils
@@ -29,17 +22,6 @@ def parse_focus_genes(gene_str: str):
     Parse focus genes from gene string
     '''
     return [g.strip().lower() for g in gene_str.split(";") if g.strip()]
-
-
-def is_cell_specific(args):
-    '''
-    Check if the embedding is cell-specific
-    '''
-    return (
-        args.ft_ckpt is not None
-        or (args.cell_type_bw is not None and args.cell_type_peak is not None)
-    )
-
 
 def validate_args(args):
     '''
@@ -57,111 +39,25 @@ def validate_args(args):
                 "or both --cell-type-bw and --cell-type-peak."
             )
 
-
 def get_required_keys(args):
     '''
     Get required keys for the embedding
     '''
-    required = ["chrombert_region_file", "hdf5_file", "pretrain_ckpt"]
+    # required = ["chrombert_region_file", "hdf5_file", "pretrain_ckpt"]
 
-    if is_cell_specific(args):
-        required.append("mtx_mask")
+    # if is_cell_specific(args):
+    #     required.append("mtx_mask")
+
+    required = ["chrombert_region_file", "hdf5_file"]
 
     return required
-
-
-def build_dataloader(supervised_file, hdf5_file, batch_size, num_workers=8):
-    '''
-    Build dataloader
-    '''
-    data_config = DatasetConfig(
-        kind="GeneralDataset",
-        supervised_file=supervised_file,
-        hdf5_file=hdf5_file,
-        batch_size=batch_size,
-        num_workers=num_workers,
-    )
-    dl = data_config.init_dataloader()
-    ds = data_config.init_dataset()
-    return ds, dl
-
-
-def build_model_emb(args,files_dict):
-    '''
-    Build pretrained model and embedding manager
-    '''
-    # if files_dict["pretrain_ckpt"] is not None and os.path.exists(files_dict["pretrain_ckpt"]) and os.path.exists(files_dict["mtx_mask"]):
-    #     model_config = ChromBERTConfig(
-    #             ckpt=files_dict["pretrain_ckpt"],
-    #             genome=args.genome,
-    #             mask_matrix=files_dict["mtx_mask"],
-    #         )
-    #     model_emb = model_config.init_model().get_embedding_manager().cuda().bfloat16()
-    # else:
-    #     model_emb = AutoModel.from_pretrained(get_model_name(args.genome, args.resolution), trust_remote_code=True).get_embedding_manager().cuda().bfloat16()
-    model_emb = AutoModel.from_pretrained(get_model_name(args.genome, args.resolution), trust_remote_code=True).get_embedding_manager().cuda().bfloat16()
-    
-    return model_emb
-
-
-def build_cell_model_emb(args, files_dict,odir):
-    '''
-    Build cell-specific model and embedding manager
-    '''
-    # 1) load ft ckpt if provided
-    if args.ft_ckpt is not None:
-        print(f"Using provided fine-tuned checkpoint: {args.ft_ckpt}")
-        model_config = ChromBERTFTConfig(
-            pretrain_model_name_or_path = get_model_name(args.genome, args.resolution),
-            finetune_ckpt=args.ft_ckpt,
-            pretrain_ckpt=files_dict["pretrain_ckpt"],
-            dropout=0,
-        )
-        model_emb = model_config.init_model().get_embedding_manager().cuda().bfloat16()
-        return model_emb
-
-    # 2) no ft ckpt, train cell-specific model on the fly
-    d_odir = f"{odir}/dataset"
-    os.makedirs(d_odir, exist_ok=True)
-    train_odir = f"{odir}/train"
-    os.makedirs(train_odir, exist_ok=True)
-
-    print("Preparing dataset for cell-specific model...")
-    make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict, args.mode)
-
-    print("Fine-tuning cell-specific model...")
-    model_tuned, train_odir, model_config, data_config = retry_train(
-        args,
-        files_dict,
-        cal_metrics_regression,
-        metcic="pearsonr",
-        min_threshold=0.4,
-    )
-    model_emb = model_tuned.get_embedding_manager().cuda().bfloat16()
-    return model_emb
-
-
-def generate_embeddings(dl, model_emb):
-    '''
-    Generate embeddings from chrombert (forward pass)
-    '''
-    region_embs = []
-    with torch.no_grad():
-        for batch in tqdm(dl, total=len(dl)):
-            for k, v in batch.items():
-                if isinstance(v, torch.Tensor):
-                    batch[k] = v.cuda()
-            model_emb(batch)
-            region_embs.append(model_emb.get_region_embedding().float().cpu().detach())
-
-    return torch.cat(region_embs, dim=0).numpy()
 
 
 # =========================
 # region embedding
 # =========================
 
-def run_region_general(args, files_dict, odir, return_data=False):
+def run_region_general(args, files_dict, odir, return_data=False,model_emb=None):
     '''
     Generate region embeddings for general model
     '''
@@ -183,7 +79,8 @@ def run_region_general(args, files_dict, odir, return_data=False):
             hdf5_file=files_dict["hdf5_file"],
             batch_size=args.batch_size,
         )
-        model_emb = build_model_emb(args,files_dict)
+        if model_emb is None:
+            model_emb = build_model_emb(args,files_dict)
         region_embs = generate_embeddings(dl, model_emb)
 
     np.save(f"{odir}/region_emb_{args.oname}.npy", region_embs)
@@ -193,12 +90,13 @@ def run_region_general(args, files_dict, odir, return_data=False):
         return region_embs, overlap_bed
 
 
-def run_region_cell(args, files_dict, odir, return_data=False):
+def run_region_cell(args, files_dict, odir, return_data=False, model_emb=None):
     focus_region = args.region
 
     overlap_bed = check_region_file(focus_region, files_dict, odir)
 
-    model_emb = build_cell_model_emb(args, files_dict, odir)
+    if model_emb is None:
+        model_emb = build_cell_model_emb(args, files_dict, odir)
 
     _, dl = build_dataloader(
         supervised_file=f"{odir}/model_input.tsv",
@@ -284,7 +182,7 @@ def pool_gene_embeddings(region_embs, sub_df, gene_to_region_idx):
     return gene_emb_dict
 
 
-def run_gene_general(args, files_dict, odir, return_data=False):
+def run_gene_general(args, files_dict, odir, return_data=False,model_emb=None):
     info = prepare_gene_regions(args, files_dict, odir)
 
     emb_npy_path = files_dict["region_emb_npy"]
@@ -303,7 +201,8 @@ def run_gene_general(args, files_dict, odir, return_data=False):
             hdf5_file=files_dict["hdf5_file"],
             batch_size=args.batch_size,
         )
-        model_emb = build_model_emb(args,files_dict)
+        if model_emb is None:
+            model_emb = build_model_emb(args,files_dict)
         region_embs = generate_embeddings(dl, model_emb)
         gene_emb_dict = pool_gene_embeddings(
             region_embs,
@@ -319,10 +218,11 @@ def run_gene_general(args, files_dict, odir, return_data=False):
         return gene_emb_dict
 
 
-def run_gene_cell(args, files_dict, odir, return_data=False):
+def run_gene_cell(args, files_dict, odir, return_data=False, model_emb=None):
     info = prepare_gene_regions(args, files_dict, odir)
 
-    model_emb = build_cell_model_emb(args, files_dict, odir)
+    if model_emb is None:
+        model_emb = build_cell_model_emb(args, files_dict, odir)
 
     _, dl = build_dataloader(
         supervised_file=f"{odir}/model_input_gene.tsv",
@@ -475,15 +375,16 @@ def embed_region(
 
     cell_mode = is_cell_specific(args)
 
-    if args.region is not None:
-        if cell_mode:
-            run_region_cell(args, files_dict, odir)
-        else:
+    if cell_mode:
+        model_emb = build_cell_model_emb(args, files_dict, odir)
+        if args.region is not None:
+            run_region_cell(args, files_dict, odir, model_emb=model_emb)
+        if args.gene is not None:
+            run_gene_cell(args, files_dict, odir, model_emb=model_emb)
+    else:
+        if args.region is not None:
             run_region_general(args, files_dict, odir)
-    if args.gene is not None:
-        if cell_mode:
-            run_gene_cell(args, files_dict, odir)
-        else:
+        if args.gene is not None:
             run_gene_general(args, files_dict, odir)
 
 

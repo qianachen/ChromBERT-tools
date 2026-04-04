@@ -15,7 +15,7 @@ from chrombert import ChromBERTFTConfig, DatasetConfig
 from sklearn.metrics.pairwise import cosine_similarity
 from .utils import set_seed
 from .utils import resolve_paths, check_files
-from .utils import cal_metrics_regression, model_eval
+from .utils import cal_metrics_regression
 from .utils import model_embedding, factor_rank
 from .utils_train_cell import make_dataset, retry_train
 

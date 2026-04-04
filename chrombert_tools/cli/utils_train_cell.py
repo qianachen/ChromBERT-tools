@@ -159,10 +159,14 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
     )
 
     # Init model config
+    if files_dict["pretrain_ckpt"] is not None and os.path.exists(files_dict["pretrain_ckpt"]) and os.path.exists(files_dict["mtx_mask"]):
+        pretrained_model_name_or_path = None
+    else:
+        pretrained_model_name_or_path = get_model_name(args.genome, args.resolution)
     if task == "gep":
         model_config = ChromBERTFTConfig(
             genome=args.genome,
-            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+            pretrained_model_name_or_path=pretrained_model_name_or_path,
             task="gep",
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
@@ -171,7 +175,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
     else:
         model_config = ChromBERTFTConfig(
             genome=args.genome,
-            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+            pretrained_model_name_or_path=pretrained_model_name_or_path,
             task=task,
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],

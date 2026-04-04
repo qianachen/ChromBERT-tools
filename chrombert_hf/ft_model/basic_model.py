@@ -74,7 +74,8 @@ class BasicModel(nn.Module, ABC):
             pretrain_model = self.pretrain_model
         elif getattr(self.finetune_config, "pretrain_ckpt", None) is not None and os.path.exists(getattr(self.finetune_config, "pretrain_ckpt", None)) and os.path.exists(self.finetune_config.mtx_mask):
             pretrain_config = ChromBERTConfig(genome=self.finetune_config.genome,
-                        mtx_mask=self.finetune_config.mtx_mask)
+                                              dropout=self.finetune_config.dropout,
+                                            mtx_mask=self.finetune_config.mtx_mask)
             pretrain_model = pretrain_config.init_model(
                 getattr(self.finetune_config, "pretrain_ckpt", None),
             )

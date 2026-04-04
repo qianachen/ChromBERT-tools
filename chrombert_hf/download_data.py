@@ -53,19 +53,47 @@ class HuggingFaceDownloader:
 
 def build_chrombert_paths_dict(basedir, genome, resolution):
     basedir = os.path.abspath(basedir)
-    n_d = "6k" if genome == "hg38" else "5k"  # mm10 仅 1kb，与现有脚本一致
+    n_d = "6k" if genome == "hg38" else "5k"
+
+    paths = {
+        "chrombert_region_file": os.path.join(
+            basedir, "config", f"{genome}_{n_d}_{resolution}_region.bed"
+        ),
+        "chrombert_regulator_file": os.path.join(
+            basedir, "config", f"{genome}_{n_d}_regulators_list.txt"
+        ),
+        "chrombert_factor_file": os.path.join(
+            basedir, "config", f"{genome}_{n_d}_factors_list.txt"
+        ),
+        "hdf5_file": os.path.join(
+            basedir, f"{genome}_{n_d}_{resolution}.hdf5"
+        ),
+        "pretrain_ckpt": os.path.join(
+            basedir, "checkpoint", f"{genome}_{n_d}_{resolution}_pretrain.ckpt"
+        ),
+        "mtx_mask": os.path.join(
+            basedir, "config", f"{genome}_{n_d}_mask_matrix.tsv"
+        ),
+        "region_emb_npy": os.path.join(
+            basedir, "anno", f"{genome}_{resolution}_region_emb.npy"
+        ),
+        "gene_meta_tsv": os.path.join(
+            basedir, "anno", f"{genome}_{resolution}_gene_meta.tsv"
+        ),
+        "base_ca_signal": os.path.join(
+            basedir, "anno", f"{genome}_{resolution}_accessibility_signal_mean.npy"
+        ),
+        "meta_file": os.path.join(
+            basedir, "config", f"{genome}_{n_d}_meta.json"
+        ),
+        "prompt_ckpt": os.path.join(
+            basedir, "checkpoint", f"{genome}_{n_d}_{resolution}_prompt_cistrome.ckpt"
+        ),
+    }
+
     return {
-        "chrombert_region_file": os.path.join(basedir, "config", f"{genome}_{n_d}_{resolution}_region.bed"),
-        "chrombert_regulator_file": os.path.join(basedir, "config", f"{genome}_{n_d}_regulators_list.txt"),
-        "chrombert_factor_file": os.path.join(basedir, "config", f"{genome}_{n_d}_factors_list.txt"),
-        "hdf5_file": os.path.join(basedir, f"{genome}_{n_d}_{resolution}.hdf5"),
-        "pretrain_ckpt": os.path.join(basedir, "checkpoint", f"{genome}_{n_d}_{resolution}_pretrain.ckpt"),
-        "mtx_mask": os.path.join(basedir, "config", f"{genome}_{n_d}_mask_matrix.tsv"),
-        "region_emb_npy": os.path.join(basedir, "anno", f"{genome}_{resolution}_region_emb.npy"),
-        "gene_meta_tsv": os.path.join(basedir, "anno", f"{genome}_{resolution}_gene_meta.tsv"),
-        "base_ca_signal": os.path.join(basedir, "anno", f"{genome}_{resolution}_accessibility_signal_mean.npy"),
-        "meta_file": os.path.join(basedir, "config", f"{genome}_{n_d}_meta.json"),
-        "prompt_ckpt": os.path.join(basedir, "checkpoint", f"{genome}_{n_d}_{resolution}_prompt_cistrome.ckpt"),
+        k: v if os.path.exists(v) else None
+        for k, v in paths.items()
     }
     
 def download(basedir = "~/.cache/chrombert/data", hf_endpoint="https://huggingface.co", genome="hg38", resolution = '1kb'):
