@@ -162,7 +162,15 @@ class ChromBERTFTConfig:
                 pretrained_model_kwargs=finetune_config.pretrained_model_kwargs,
             )
         elif finetune_config.task == "prompt":
-            raise NotImplementedError("prompt task is not implemented in chrombert_hf.ft_model yet")
+            from .prompt_ft_model import ChromBERTPrompt
+
+            model = ChromBERTPrompt(
+                finetune_config=finetune_config,
+                pretrained_model_name_or_path=pretrain_source,
+                pretrain_model=pretrain_model,
+                trust_remote_code=finetune_config.trust_remote_code,
+                pretrained_model_kwargs=finetune_config.pretrained_model_kwargs,
+            )
         else:
             from .general_ft_model import ChromBERTGeneral
 

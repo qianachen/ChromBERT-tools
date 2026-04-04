@@ -8,9 +8,6 @@ import torch
 from torch import nn
 from transformers import AutoModel
 
-
-# from pretrain_model import ChromBERTEmbedding
-# from pretrain_model import ChromBERTModel
 from chrombert_hf.pretrain_model import ChromBERTEmbedding
 from chrombert_hf.pretrain_model import ChromBERTModel
 from chrombert_hf.pretrain_model import ChromBERTConfig

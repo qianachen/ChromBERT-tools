@@ -177,7 +177,7 @@ def run(args, return_data=False):
 @click.option("--mode", default="fast", show_default=True,
               type=click.Choice(["fast", "full"], case_sensitive=False),
               help="Used when training cell-specific model.")
-@click.option("--batch-size", default=64, show_default=True, type=int, help="Batch size.")
+@click.option("--batch-size", default=4, show_default=True, type=int, help="Batch size.")
 @click.option("--num-workers", default=8, show_default=True, type=int, help="Dataloader workers.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
               default="~/.cache/chrombert/data",

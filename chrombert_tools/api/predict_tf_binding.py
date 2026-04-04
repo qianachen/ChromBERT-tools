@@ -4,10 +4,11 @@ Provides a Python-friendly interface reusing the CLI implementation.
 """
 from types import SimpleNamespace
 from typing import List, Union, Tuple
-from ..cli.impute_cistrome import run as _cli_run
+# from ..cli.impute_cistrome import run as _cli_run
+from ..cli.predict_tf_binding import run as _cli_run
 import os
 
-def impute_cistrome(
+def predict_tf_binding(
     region: str,
     cistrome: Union[str, List[str]],
     odir: str = "./output",
