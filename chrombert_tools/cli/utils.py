@@ -202,6 +202,8 @@ def check_region_file(focus_region,files_dict,odir):
             )
         if "build_region_index" in df.columns:
             overlap_bed = df[required + ['build_region_index']].copy()
+            if "label" in df.columns:
+                overlap_bed["label"] = df["label"]
             overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
         else:
             # write a temp BED and reuse overlap_region
@@ -210,6 +212,9 @@ def check_region_file(focus_region,files_dict,odir):
             overlap_bed = overlap_region(tmp_bed, files_dict["chrombert_region_file"], odir)
             if overlap_bed.shape[0] == 0:
                 raise ValueError("No overlap found between your regions and ChromBERT regions.")
+            if "label" in df.columns:
+                overlap_bed = overlap_bed.merge(df[required + ["label"]], on=required, how="left")
+            overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
     else:
         raise ValueError(f"Unsupported region file format: {focus_region}. Only .bed, .csv, and .tsv are supported.")
     return overlap_bed

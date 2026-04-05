@@ -19,7 +19,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from chrombert_hf import ChromBERTFTConfig, DatasetConfig, ChromBERTConfig
 
 from .utils import resolve_paths, check_files, overlap_regulator_func, overlap_region
-from .utils import split_data, cal_metrics_binary, cal_metrics_multiclass, get_model_name
+from .utils import split_data, cal_metrics_binary, cal_metrics_multiclass, get_model_name,check_region_file
 from .utils_train_cell import retry_train
 from .utils_classfication import validate_args, prepare_dataset
 
@@ -114,7 +114,7 @@ def _resolve_predict_file(args, d_odir):
     raise FileNotFoundError(f"No predict file or test file found in {d_odir}")
 
 
-def predict(args, model_tuned, data_config, d_odir):
+def predict(args, model_tuned, data_config, files_dict,d_odir):
     """Run prediction, save probabilities and predicted labels."""
     n_classes = len(args.function_names)
     names = args.function_names
@@ -122,11 +122,14 @@ def predict(args, model_tuned, data_config, d_odir):
     os.makedirs(predict_odir, exist_ok=True)
 
     predict_file = _resolve_predict_file(args, d_odir)
+    check_region_file(predict_file,files_dict,predict_odir)
+    predict_file = os.path.join(predict_odir, "model_input.tsv")
     print(f"  Predict input: {predict_file}")
 
+    
     data_config.supervised_file = predict_file
     dl = data_config.init_dataloader(batch_size=args.batch_size)
-    meta_df = pd.read_csv(predict_file)
+    meta_df = pd.read_csv(predict_file,sep="\t")
 
     model_tuned = model_tuned.eval()
     all_logits = []
@@ -139,15 +142,20 @@ def predict(args, model_tuned, data_config, d_odir):
                     batch[k] = v.cuda()
             logits = model_tuned(batch).cpu()
             all_logits.append(logits)
-            all_labels.append(batch["label"].cpu())
+            if "label" in batch:
+                all_labels.append(batch["label"].cpu())
+                all_label_state = True
+            else:
+                all_label_state = False
 
     all_logits = torch.cat(all_logits, dim=0)
-    all_labels = torch.cat(all_labels, dim=0).reshape(-1)
+    all_labels = torch.cat(all_labels, dim=0).reshape(-1) if all_label_state else None
 
     # Build result DataFrame starting from region metadata
     region_cols = [c for c in ["chrom", "start", "end", "build_region_index"] if c in meta_df.columns]
     result = meta_df[region_cols].copy()
-    result["true_label"] = all_labels.numpy()
+    if all_label_state:
+        result["true_label"] = all_labels.numpy() 
 
     if n_classes > 2:
         # multiclass: softmax → per-class probabilities
@@ -310,7 +318,7 @@ def run(args):
 
     # Stage 3: Predict
     print("Stage 3: Predicting")
-    predict(args, model_tuned, data_config, d_odir)
+    predict(args, model_tuned, data_config, files_dict, d_odir)
     print("Finished stage 3")
 
     report(args, train_odir)
