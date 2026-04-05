@@ -138,7 +138,7 @@ def init_datamodule(d_odir, args, files_dict, ignore_object=None, task="general"
     return data_config, data_module, ignore, ignore_index
 
 def model_train(d_odir, train_odir, args, files_dict, train_kind='regression', 
-                ignore_object=None, task="general"):
+                ignore_object=None, task="general", dim_output=1):
     """
     Train a ChromBERT model.
     
@@ -147,9 +147,10 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
         train_odir: Training output directory
         args: Arguments containing genome, batch_size, mode, etc.
         files_dict: Dictionary of file paths
-        train_kind: "regression" or "classification"
+        train_kind: "regression", "classification", or "multiclass"
         ignore_object: Optional object to ignore during training
         task: ChromBERT task type ("general" or "gep")
+        dim_output: Output dimension (1 for binary/regression, N for N-class)
     
     Returns:
         data_module, model_config
@@ -181,14 +182,22 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
             mtx_mask=files_dict["mtx_mask"],
             ignore=ignore,
             ignore_index=ignore_index,
+            dim_output=dim_output,
         )
         
     model = model_config.init_model()
     model.freeze_pretrain(2)  # freeze chrombert 6 transformer blocks during fine-tuning
 
     # Init trainer
-    loss = 'rmse' if train_kind == 'regression' else "bce"
-    callback_metrics = "pcc" if train_kind == 'regression' else "auprc"
+    if train_kind == 'regression':
+        loss = 'rmse'
+        callback_metrics = 'pcc'
+    elif train_kind == 'multiclass':
+        loss = 'ce'
+        callback_metrics = 'macro_f1'
+    else:
+        loss = 'bce'
+        callback_metrics = 'auprc'
     max_epochs = 10 if task == "gep" else 5
     accumulate_grad_batches = 64
     patience = 10 if task == "gep" else 5
@@ -200,6 +209,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
         accumulate_grad_batches=accumulate_grad_batches,
         val_check_interval=0.2,
         limit_val_batches=0.5,
+        num_classes=dim_output if train_kind == 'multiclass' else 2,
     )
     train_module = train_config.init_pl_module(model)
     callback_ckpt = pl.callbacks.ModelCheckpoint(monitor=f"{train_config.tag}_validation/{callback_metrics}", mode="max")
@@ -258,8 +268,12 @@ def model_eval(train_odir, data_module, model_config, cal_metrics):
             test_labels.append(batch["label"].cpu())
             test_preds.append(preds)
 
-    test_preds = torch.cat(test_preds, dim=0).reshape(-1)
-    test_labels = torch.cat(test_labels, axis=0).reshape(-1)
+    test_preds = torch.cat(test_preds, dim=0)
+    test_labels = torch.cat(test_labels, dim=0)
+    # For binary/regression flatten to 1-D; for multiclass keep (N, C)
+    if test_preds.dim() == 1 or (test_preds.dim() == 2 and test_preds.shape[-1] == 1):
+        test_preds = test_preds.reshape(-1)
+        test_labels = test_labels.reshape(-1)
 
     test_metrics = cal_metrics(test_preds, test_labels)
     print(f"ft_ckpt: {ft_ckpt}, test_metrics: {test_metrics}")
@@ -290,7 +304,8 @@ def cleanup_memory(*objs):
         torch.cuda.empty_cache()
         
 def retry_train(args, files_dict, cal_metrics, metcic='pearsonr', min_threshold=0.2, 
-                train_kind='regression', ignore_object=None, task="general",odir=None):
+                train_kind='regression', ignore_object=None, task="general",
+                odir=None, dim_output=1):
     """
     Train with multiple retries to ensure stable performance.
     
@@ -300,9 +315,10 @@ def retry_train(args, files_dict, cal_metrics, metcic='pearsonr', min_threshold=
         cal_metrics: Function to calculate metrics
         metcic: Metric name to monitor (e.g., 'pearsonr', 'auprc')
         min_threshold: Minimum acceptable threshold for the metric
-        train_kind: "regression" or "classification"
+        train_kind: "regression", "classification", or "multiclass"
         ignore_object: Optional object to ignore during training
         task: ChromBERT task type ("general" or "gep")
+        dim_output: Output dimension (1 for binary/regression, N for N-class)
     
     Returns:
         model_tuned, train_odir, model_config, data_config
@@ -339,7 +355,8 @@ def retry_train(args, files_dict, cal_metrics, metcic='pearsonr', min_threshold=
         print(f"\n[Attempt {attempt}/{max_retries}] seed={trial_seed}")
         try:
             data_module, model_config = model_train(
-                d_odir, train_odir_try, args, files_dict, train_kind, ignore_object, task
+                d_odir, train_odir_try, args, files_dict, train_kind, ignore_object, task,
+                dim_output=dim_output,
             )
             data_config = data_module.basic_config
 

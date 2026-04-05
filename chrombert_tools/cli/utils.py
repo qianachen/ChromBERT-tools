@@ -214,7 +214,7 @@ def check_region_file(focus_region,files_dict,odir):
         raise ValueError(f"Unsupported region file format: {focus_region}. Only .bed, .csv, and .tsv are supported.")
     return overlap_bed
 
-def overlap_region(region_bed, chrombert_region_file, odir):
+def overlap_region(region_bed, chrombert_region_file, odir, tag=None):
     os.makedirs(odir, exist_ok=True)
 
     # overlapping focus regions
@@ -246,9 +246,12 @@ def overlap_region(region_bed, chrombert_region_file, odir):
 
     total_region = sum(1 for _ in open(region_bed))
     no_overlap_len = sum(1 for _ in open(f"{odir}/no_overlap_region.bed"))
+    prefix = f"[{tag}] " if tag else ""
     print(
-        f"Region summary - total: {total_region}, "
-        f"overlapping with ChromBERT: {overlap_bed.shape[0]} (one region may overlap multiple ChromBERT regions, We keep overlaps with ≥50% coverage of either the ChromBERT bin or the input region),"
+        f"{prefix}Region summary - total: {total_region}, "
+        f"overlapping with ChromBERT: {overlap_bed.shape[0]} "
+        f"(one region may overlap multiple ChromBERT regions, "
+        f"we keep overlaps with ≥50% coverage of either the ChromBERT bin or the input region), "
         f"non-overlapping: {no_overlap_len}"
     )
     return overlap_bed
@@ -454,6 +457,36 @@ def cal_metrics_binary(preds, labels):
     return metrics
 
 
+def cal_metrics_multiclass(preds, labels):
+    """Evaluate multi-class predictions.
+
+    Args:
+        preds: (N, C) logits tensor
+        labels: (N,) integer labels tensor
+    """
+    n_classes = preds.shape[-1]
+    probs = torch.softmax(preds, dim=-1)
+    pred_classes = torch.argmax(probs, dim=-1)
+    labels_long = labels.long()
+
+    acc = tm.Accuracy(task="multiclass", num_classes=n_classes)
+    macro_f1 = tm.F1Score(task="multiclass", num_classes=n_classes, average="macro")
+    macro_prec = tm.Precision(task="multiclass", num_classes=n_classes, average="macro")
+    macro_rec = tm.Recall(task="multiclass", num_classes=n_classes, average="macro")
+    mcc = tm.MatthewsCorrCoef(task="multiclass", num_classes=n_classes)
+
+    metrics = {
+        "acc": acc(pred_classes, labels_long).item(),
+        "macro_f1": macro_f1(pred_classes, labels_long).item(),
+        "macro_precision": macro_prec(pred_classes, labels_long).item(),
+        "macro_recall": macro_rec(pred_classes, labels_long).item(),
+        "mcc": mcc(pred_classes, labels_long).item(),
+    }
+
+    for m in [acc, macro_f1, macro_prec, macro_rec, mcc]:
+        m.reset()
+
+    return metrics
 
 
 def model_embedding(train_odir=None, model_config=None, ft_ckpt=None, model_tuned=None):

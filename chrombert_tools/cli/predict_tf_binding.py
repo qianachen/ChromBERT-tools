@@ -10,7 +10,7 @@ import json
 
 from chrombert_hf import ChromBERTFTConfig
 from .utils import resolve_paths, check_files, check_region_file, get_model_name
-from .embed_utils import build_dataloader
+from .utils_embed import build_dataloader
 
 import pyBigWig
 import bioframe as bf

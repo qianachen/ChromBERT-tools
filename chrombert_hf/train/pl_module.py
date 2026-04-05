@@ -100,6 +100,57 @@ class RegressionPLModule(BasicPLModule):
         return None
 
 
+class MulticlassPLModule(BasicPLModule):
+    """PL module for multi-class classification (softmax + CrossEntropyLoss)."""
+
+    def clean_inputs(self, logits, labels, *args, **kwargs):
+        # logits: (N, C), labels: (N,) or (N, 1)
+        return logits.view(-1, logits.shape[-1]), labels.view(-1).long()
+
+    def configure_loss_and_metrics(self):
+        n = self.config.num_classes
+        self.loss_funcs = {
+            'ce': nn.CrossEntropyLoss(),
+        }
+        self.metric_funcs = {
+            'macro_f1': tm.F1Score(task="multiclass", num_classes=n, average="macro"),
+            'acc': tm.Accuracy(task="multiclass", num_classes=n, average="micro"),
+        }
+        return None
+
+    def logging_temp_states(self, logits, batch):
+        self.logger_values.log("logits", logits)
+        self.logger_values.log("label", batch["label"])
+        return None
+
+    def process_metrics_validation_end(self):
+        logits_flat = self.logger_values.get_values("logits")
+        labels_flat = self.logger_values.get_values("label")
+
+        n_classes = self.config.num_classes
+        logits = logits_flat.view(-1, n_classes)
+        labels = labels_flat.view(-1).long()
+
+        probs = torch.softmax(logits, dim=-1)
+        preds = torch.argmax(probs, dim=-1)
+
+        metrics_loss = {name: func.to(labels.device)(logits, labels) for name, func in self.loss_funcs.items()}
+        metrics_metrics = {name: func.to(labels.device)(preds, labels) for name, func in self.metric_funcs.items()}
+
+        metrics = {}
+        metrics.update(metrics_loss)
+        metrics.update(metrics_metrics)
+        metrics["mean_prob_max"] = torch.mean(probs.max(dim=-1).values)
+
+        state = {f"{self.config.tag}_validation/{name}": value for name, value in metrics.items()}
+        for name, value in state.items():
+            self.log(name, value, sync_dist=True, on_step=False, on_epoch=True, prog_bar=True)
+
+        for k, func in self.metric_funcs.items():
+            func.reset()
+        return None
+
+
 class ZeroInflationPLModule(BasicPLModule):
 
     def clean_inputs(self,logits, labels):

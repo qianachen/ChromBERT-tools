@@ -1,2 +1,2 @@
 from .train_config import TrainConfig
-from .pl_module import ClassificationPLModule, RegressionPLModule, ZeroInflationPLModule
+from .pl_module import ClassificationPLModule, MulticlassPLModule, RegressionPLModule, ZeroInflationPLModule

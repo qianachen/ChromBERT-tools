@@ -11,7 +11,7 @@ from .utils import (
     check_region_file,
     overlap_gene_map_region,
 )
-from .embed_utils import is_cell_specific, get_required_keys, build_dataloader, build_model_emb, build_cell_model_emb, generate_embeddings
+from .utils_embed import is_cell_specific, get_required_keys, build_dataloader, build_model_emb, build_cell_model_emb, generate_embeddings
 
 # =========================
 # embed utils

@@ -8,7 +8,7 @@ from .utils import (
     chrom_to_int_series,
     overlap_regulator_func,
 )
-from .embed_utils import (
+from .utils_embed import (
     is_cell_specific, 
     get_required_keys, 
     build_dataloader, 

@@ -11,6 +11,7 @@ class TrainConfig:
     kind: str = field(default='classification', metadata={"help": "kind of the model"})
     loss: str = field(default='bce', metadata={"help": "loss function"})
     tag: str = field(default='default', metadata={"help": "tag of the trainer, used for grouping logged results"})
+    num_classes: int = field(default=2, metadata={"help": "number of classes (used by multiclass metrics)"})
 
     adam_beta1: float = field(default=0.9, metadata={"help": "Adam beta1"})
     adam_beta2: float = field(default=0.999, metadata={"help": "Adam beta2"})
@@ -73,10 +74,13 @@ class TrainConfig:
         return TrainConfig.load(self.to_dict())
     
     def validation(self):
-        assert self.kind in ['classification', 'regression', 'zero_inflation'], f"{self.kind=} must be one of ['classification', 'regression', 'zero_inflation']"
+        valid_kinds = ['classification', 'multiclass', 'regression', 'zero_inflation']
+        assert self.kind in valid_kinds, f"{self.kind=} must be one of {valid_kinds}"
 
         if self.kind == 'classification':
             assert self.loss in ['bce', 'focal'], f"{self.loss=} must be one of ['bce', 'focal']"
+        elif self.kind == 'multiclass':
+            assert self.loss in ['ce'], f"{self.loss=} must be one of ['ce']"
         elif self.kind == 'regression':
             assert self.loss in ['mae', 'mse', 'rmse'], f"{self.loss=} must be one of ['mae', 'mse', 'rmse']"
         else:
@@ -98,6 +102,8 @@ class TrainConfig:
         train_config.update(**kwargs)
         if train_config.kind == "classification":
             from . import ClassificationPLModule as T
+        elif train_config.kind == "multiclass":
+            from . import MulticlassPLModule as T
         elif train_config.kind == "regression":
             from . import RegressionPLModule as T 
         elif train_config.kind == "zero_inflation":
