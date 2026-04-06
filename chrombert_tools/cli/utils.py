@@ -144,51 +144,56 @@ def check_files(files_dict, required_keys=None):
         )
         raise FileNotFoundError(msg)
     
-def make_dataset(focus_region,files_dict,odir):
-    """
-    Check if the region file is valid.
-    """
-    if focus_region.endswith(".bed"):
-        overlap_bed = overlap_region(focus_region, files_dict["chrombert_region_file"], odir)
-        if overlap_bed.shape[0] == 0:
-            raise ValueError("No overlap found between your regions and ChromBERT regions.")
+# def make_dataset(focus_region,files_dict,odir):
+#     """
+#     Make binary data if overlap with label 1 the other chrombert region with label 0.
+#     """
+#     if focus_region.endswith(".bed"):
+#         overlap_bed = overlap_region(focus_region, files_dict["chrombert_region_file"], odir) # [chrom, start, end, build_region_index, start_input, end_input]
+#         if overlap_bed.shape[0] == 0:
+#             raise ValueError("No overlap found between your regions and ChromBERT regions.")
         
-    elif focus_region.endswith(".csv") or focus_region.endswith(".tsv"):
-        df = pd.read_csv(focus_region) if focus_region.endswith(".csv") else pd.read_csv(focus_region, sep="\t")
-        required = ["chrom", "start", "end"]
-        missing = [c for c in required if c not in df.columns]
-        if missing:
-            raise ValueError(
-                f"Missing columns in CSV/TSV: {missing}. Required columns: {required}."
-            )
-        if "build_region_index" in df.columns:
-            overlap_bed = df[required + ['build_region_index']].copy()
-            
-            overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
-        else:
-            # write a temp BED and reuse overlap_region
-            tmp_bed = f"{odir}/tmp_focus_regions.bed"
-            df[required].to_csv(tmp_bed, sep="\t", header=False, index=False)
-            overlap_bed = overlap_region(tmp_bed, files_dict["chrombert_region_file"], odir)
-            if overlap_bed.shape[0] == 0:
-                raise ValueError("No overlap found between your regions and ChromBERT regions.")
+#     elif focus_region.endswith(".csv") or focus_region.endswith(".tsv"):
+#         df = pd.read_csv(focus_region) if focus_region.endswith(".csv") else pd.read_csv(focus_region, sep="\t")
+#         required = ["chrom", "start", "end"]
+#         missing = [c for c in required if c not in df.columns]
+#         if missing:
+#             raise ValueError(
+#                 f"Missing columns in CSV/TSV: {missing}. Required columns: {required}."
+#             )
+#         if "build_region_index" in df.columns:
+#             if "start_input" in df.columns and "end_input" in df.columns:
+#                 overlap_bed = df[required + ['build_region_index', 'start_input', 'end_input']].copy()
+#             else:
+#                 overlap_bed = df[required + ['build_region_index']].copy()
+#                 overlap_bed['start_input'] = overlap_bed['start']
+#                 overlap_bed['end_input'] = overlap_bed['end']
+#             overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
+#         else:
+#             # write a temp BED and reuse overlap_region
+#             tmp_bed = f"{odir}/tmp_focus_regions.bed"
+#             df[required].to_csv(tmp_bed, sep="\t", header=False, index=False)
+#             overlap_bed = overlap_region(tmp_bed, files_dict["chrombert_region_file"], odir) # [chrom, start, end, build_region_index, start_input, end_input]
+#             if overlap_bed.shape[0] == 0:
+#                 raise ValueError("No overlap found between your regions and ChromBERT regions.")
 
-    else:
-        raise ValueError(f"Unsupported region file format: {focus_region}. Only .bed, .csv, and .tsv are supported.")
+#     else:
+#         raise ValueError(f"Unsupported region file format: {focus_region}. Only .bed, .csv, and .tsv are supported.")
     
-    model_input_df = pd.read_csv(files_dict["chrombert_region_file"], sep="\t", header=None, names=["chrom", "start", "end", "build_region_index"])
-    model_input_df["label"] = 0
-    model_input_df.loc[overlap_bed.build_region_index, "label"] = 1
-    model_input_df.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
+#     model_input_df = pd.read_csv(files_dict["chrombert_region_file"], sep="\t", header=None, names=["chrom", "start", "end", "build_region_index"])
+#     model_input_df["label"] = 0
+#     mask = model_input_df["build_region_index"].isin(overlap_bed["build_region_index"])
+#     model_input_df.loc[mask, "label"] = 1
+#     model_input_df.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
     
-    return model_input_df
+#     return model_input_df
     
 def check_region_file(focus_region,files_dict,odir):
     """
     Check if the region file is valid.
     """
     if focus_region.endswith(".bed"):
-        overlap_bed = overlap_region(focus_region, files_dict["chrombert_region_file"], odir)
+        overlap_bed = overlap_region(focus_region, files_dict["chrombert_region_file"], odir) # [chrom, start, end, build_region_index, start_input, end_input]
         if overlap_bed.shape[0] == 0:
             raise ValueError("No overlap found between your regions and ChromBERT regions.")
         
@@ -201,19 +206,27 @@ def check_region_file(focus_region,files_dict,odir):
                 f"Missing columns in CSV/TSV: {missing}. Required columns: {required}."
             )
         if "build_region_index" in df.columns:
-            overlap_bed = df[required + ['build_region_index']].copy()
+            if "start_input" in df.columns and "end_input" in df.columns:
+                overlap_bed = df[required + ['build_region_index', 'start_input', 'end_input']].copy()
+            else:
+                overlap_bed = df[required + ['build_region_index']].copy()
+                overlap_bed['start_input'] = overlap_bed['start']
+                overlap_bed['end_input'] = overlap_bed['end']
             if "label" in df.columns:
                 overlap_bed["label"] = df["label"]
+                overlap_bed = overlap_bed[required + ["build_region_index", "label", "start_input", "end_input"]]
             overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
         else:
             # write a temp BED and reuse overlap_region
             tmp_bed = f"{odir}/tmp_focus_regions.bed"
             df[required].to_csv(tmp_bed, sep="\t", header=False, index=False)
-            overlap_bed = overlap_region(tmp_bed, files_dict["chrombert_region_file"], odir)
+            overlap_bed = overlap_region(tmp_bed, files_dict["chrombert_region_file"], odir) # [chrom, start, end, build_region_index, start_input, end_input]
             if overlap_bed.shape[0] == 0:
                 raise ValueError("No overlap found between your regions and ChromBERT regions.")
             if "label" in df.columns:
-                overlap_bed = overlap_bed.merge(df[required + ["label"]], on=required, how="left")
+                df = df[required + ["label"]].copy()
+                df.columns = ["chrom", "start_input", "end_input", "label"]
+                overlap_bed = overlap_bed.merge(df, on=["chrom", "start_input", "end_input"], how="left")
             overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
     else:
         raise ValueError(f"Unsupported region file format: {focus_region}. Only .bed, .csv, and .tsv are supported.")
@@ -236,8 +249,10 @@ def overlap_region(region_bed, chrombert_region_file, odir, tag=None):
         f"{odir}/overlap_region.bed",
         sep="\t",
         header=None,
-        names=["chrom", "start", "end", "build_region_index"],
+        names=["chrom_input", "start_input", "end_input", "build_region_index"],
     )
+    chrombert_region = pd.read_csv(chrombert_region_file, sep="\t", header=None, names=["chrom", "start", "end", "build_region_index"])
+    overlap_bed = overlap_bed.merge(chrombert_region, on=["build_region_index"], how="left")[["chrom","start","end","build_region_index","start_input","end_input"]]
     overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
 
     # non-overlapping regions

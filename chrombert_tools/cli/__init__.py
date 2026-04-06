@@ -43,7 +43,7 @@ def cli(verbose, debug):
 
         sys.excepthook = _excepthook
         
-from .utils import make_dataset
+# from .utils import make_dataset
 from .utils import check_region_file
 
 from . import (
@@ -61,6 +61,8 @@ from . import (
     # impute_cistrome,
     predict_tf_binding,
     predict_region_function_label,
+    predict_region_activity,
+    predict_gene_expression,
     infer_regulator_network,
     infer_cell_key_regulator,
     find_dirver_in_transition,
@@ -85,6 +87,8 @@ cli.add_command(infer_cell_key_regulator.infer_cell_key_regulator)
 # cli.add_command(impute_cistrome.impute_cistrome)
 cli.add_command(predict_tf_binding.predict_tf_binding)
 cli.add_command(predict_region_function_label.predict_region_function_label)
+cli.add_command(predict_region_activity.predict_region_activity)
+cli.add_command(predict_gene_expression.predict_gene_expression)
 cli.add_command(find_dirver_in_transition.find_driver_in_transition)
 cli.add_command(find_dirver_in_transition_dw_benchmark.find_driver_in_transition_dw_benchmark)
 cli.add_command(find_context_specific_cofactor.find_context_specific_cofactor)

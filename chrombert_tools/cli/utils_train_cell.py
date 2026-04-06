@@ -13,7 +13,7 @@ import gc
 def make_dataset(peak, bw, d_odir, files_dict, mode):
     # 1.prepare_dataset
     total_peak_process = (
-        overlap_region(peak, files_dict["chrombert_region_file"], d_odir)
+        overlap_region(peak, files_dict["chrombert_region_file"], d_odir)[["chrom", "start", "end", "build_region_index"]] 
         .drop_duplicates()
         .reset_index(drop=True)
     )

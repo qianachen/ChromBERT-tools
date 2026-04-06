@@ -6,7 +6,7 @@ warnings.filterwarnings('ignore', category=UserWarning, module='nxviz')
 
 __version__ = "1.0.0"
 
-from .cli import make_dataset
+# from .cli import make_dataset
 from .cli import check_region_file
 # from .api.embed_gene import embed_gene
 from .api.embed_cistrome import embed_cistrome

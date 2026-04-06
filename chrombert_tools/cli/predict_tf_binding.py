@@ -91,7 +91,7 @@ def get_required_keys(args):
 
 def prepare_region_and_cistrome(args, files_dict, odir):
     overlap_bed = check_region_file(args.region, files_dict, odir)
-    overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
+    overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False) # [chrom, start, end, build_region_index, start_input, end_input, label]
 
     overlap_cistromes, not_overlap_cistromes, cistrome_gsmid_dict = overlap_cistrome_func(
         args.cistrome, files_dict["meta_file"]
@@ -152,7 +152,7 @@ def run_impute(args, files_dict, odir, return_data=False):
 
             chrombert_regions.append(batch["region"].long().cpu().numpy())
             batch_index = batch["build_region_index"].long().cpu().unsqueeze(-1).numpy()
-            input_region = overlap_bed.iloc[start_idx:end_idx][:].values
+            input_region = overlap_bed[["chrom","start_input","end_input","build_region_index"]].iloc[start_idx:end_idx][:].values
             input_regions.append(input_region)
             assert (batch_index.reshape(-1) == input_region[:, -1].reshape(-1)).all(), \
                 "Batch index and region index do not match"
