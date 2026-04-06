@@ -106,7 +106,7 @@ def init_datamodule(d_odir, args, files_dict, ignore_object=None, task="general"
     
     # Only add flank_window for gep task (MultiFlankwindowDataset)
     if task == "gep":
-        config_params["flank_window"] = 4
+        config_params["flank_window"] = int(getattr(args, "flank_window", 4))
     
     data_config = DatasetConfig(**config_params)
     
@@ -165,13 +165,14 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
     else:
         pretrained_model_name_or_path = get_model_name(args.genome, args.resolution)
     if task == "gep":
+        fw = int(getattr(args, "flank_window", 4))
         model_config = ChromBERTFTConfig(
             genome=args.genome,
             pretrained_model_name_or_path=pretrained_model_name_or_path,
             task="gep",
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
-            gep_flank_window=4
+            gep_flank_window=fw,
         )
     else:
         model_config = ChromBERTFTConfig(

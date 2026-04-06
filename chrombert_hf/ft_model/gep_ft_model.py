@@ -21,6 +21,9 @@ class ChromBERTGEP(BasicModel):
             parallel_embedding=getattr(self.finetune_config, "gep_parallel_embedding", False),
             gradient_checkpoint=getattr(self.finetune_config, "gep_gradient_checkpoint", False),
         )
+        # init_pretrain_model() registers the same module as self.pretrain_model; PoolFlankWindow
+        # already owns it. Drop the root registration so state_dict has a single backbone prefix.
+        self._modules.pop("pretrain_model", None)
 
         header_cls = GepHeader if getattr(self.finetune_config, "gep_zero_inflation", False) else GeneralHeader
         self.ft_header = header_cls(

@@ -134,6 +134,9 @@ class BasicModel(nn.Module, ABC):
                 if k.startswith("pretrain_model.embedding.") or k.startswith("pretrain_model.transformer_blocks."):
                     new_k = "pretrain_model.chrombert." + k[len("pretrain_model."):]
                     remapped[new_k] = v
+                elif k.startswith("pool_flank_window.pretrain_model.embedding.") or k.startswith("pool_flank_window.pretrain_model.transformer_blocks."):
+                    new_k = "pool_flank_window.pretrain_model.chrombert." + k[len("pool_flank_window.pretrain_model."):]
+                    remapped[new_k] = v
                 else:
                     remapped[k] = v
             new_state = remapped
