@@ -539,6 +539,7 @@ def factor_rank(emb1,emb2,regulator,odir):
     )
     cos_sim_df = cos_sim_df[cos_sim_df["factors"] != "input"].reset_index(drop=True)
     cos_sim_df["rank"] = cos_sim_df.index + 1
+    cos_sim_df["embedding_shift"] = 1 - cos_sim_df["similarity"]
     cos_sim_df.to_csv(f"{odir}/factor_importance_rank.csv", index=False)
     # print(cos_sim_df.head(n=25))
     return cos_sim_df
