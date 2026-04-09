@@ -328,7 +328,7 @@ def run(args):
 # =========================
 
 @click.command(
-    name="predict_region_function_label",
+    name="predict_region_function_class",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -406,7 +406,7 @@ def run(args):
     type=click.Path(file_okay=False),
     help="ChromBERT cache directory.",
 )
-def predict_region_function_label(
+def predict_region_function_class(
     function_beds,
     function_modes,
     function_names,

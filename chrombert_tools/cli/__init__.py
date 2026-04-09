@@ -49,18 +49,18 @@ from .utils import check_region_file
 from . import (
     embed_region,
     embed_regulator,
-    embed_cistrome,
-    embed_regulator_cistrome,
+    # embed_cistrome,
+    # embed_regulator_cistrome,
     # embed_gene,
-    embed_region_perturb,
+    # embed_region_perturb,
     # embed_cell_gene,
-    embed_cell_cistrome,
+    # embed_cell_cistrome,
     # embed_cell_region,
     # embed_cell_regulator,
     # infer_ep,
     # impute_cistrome,
     predict_tf_binding,
-    predict_region_function_label,
+    predict_region_function_class,
     predict_region_activity,
     predict_gene_expression,
     interpret_region_interactions,
@@ -70,8 +70,10 @@ from . import (
     # infer_regulator_network,
     # infer_cell_key_regulator,
     find_dirver_in_transition,
-    find_dirver_in_transition_dw_benchmark,
+    find_cell_key_regulator,
+    # find_dirver_in_transition_dw_benchmark,
     find_context_specific_cofactor,
+    find_cell_key_regulator,
 )
 
 # Register all subcommands
@@ -87,7 +89,7 @@ cli.add_command(embed_regulator.embed_regulator)
 # cli.add_command(embed_cell_regulator.embed_cell_regulator)
 # cli.add_command(impute_cistrome.impute_cistrome)
 cli.add_command(predict_tf_binding.predict_tf_binding)
-cli.add_command(predict_region_function_label.predict_region_function_label)
+cli.add_command(predict_region_function_class.predict_region_function_class)
 cli.add_command(predict_region_activity.predict_region_activity)
 cli.add_command(predict_gene_expression.predict_gene_expression)
 cli.add_command(interpret_regulators_across_regions.interpret_regulators_across_regions)
@@ -95,8 +97,9 @@ cli.add_command(interpret_regulator_interactions.interpret_regulator_interaction
 cli.add_command(interpret_region_interactions.interpret_region_interactions)
 cli.add_command(interpret_context_dependent_cofactor.interpret_context_dependent_cofactor)
 cli.add_command(find_dirver_in_transition.find_driver_in_transition)
-cli.add_command(find_dirver_in_transition_dw_benchmark.find_driver_in_transition_dw_benchmark)
 cli.add_command(find_context_specific_cofactor.find_context_specific_cofactor)
+cli.add_command(find_cell_key_regulator.find_cell_key_regulator)
+# cli.add_command(find_dirver_in_transition_dw_benchmark.find_driver_in_transition_dw_benchmark)
 # cli.add_command(infer_ep.infer_ep)
 # cli.add_command(infer_regulator_network.infer_regulator_network)
 # cli.add_command(infer_cell_key_regulator.infer_cell_key_regulator)

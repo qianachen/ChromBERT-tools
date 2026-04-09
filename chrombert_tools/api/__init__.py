@@ -9,8 +9,8 @@ from .embed_region import embed_region
 from .embed_regulator import embed_regulator
 # from .impute_cistrome import impute_cistrome
 from .predict_tf_binding import predict_tf_binding
-from .infer_ep import infer_ep
-from .infer_regulator_network import infer_regulator_network
+from .interpret_region_interactions import interpret_region_interactions
+from .interpret_regulator_interactions import interpret_regulator_interactions
 __all__ = [
     # "embed_gene",
     # "embed_cistrome",
@@ -18,7 +18,7 @@ __all__ = [
     "embed_region",
     "embed_regulator",
     "predict_tf_binding",
-    "infer_ep",
-    "infer_regulator_network",
+    "interpret_region_interactions",
+    "interpret_regulator_interactions",
 ]
 

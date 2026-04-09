@@ -84,6 +84,13 @@ def build_cell_model_emb(args, files_dict,odir):
     '''
     Build cell-specific model and embedding manager
     '''
+    
+    if args.cell_type_peak is not None and args.cell_type_bw is not None:
+        d_odir = f"{odir}/dataset"
+        os.makedirs(d_odir, exist_ok=True)
+        print("Preparing dataset ...")
+        make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict, args.mode)
+    
     # 1) load ft ckpt if provided
     if args.ft_ckpt is not None:
         print(f"Using provided fine-tuned checkpoint: {args.ft_ckpt}")
@@ -98,13 +105,8 @@ def build_cell_model_emb(args, files_dict,odir):
         return model_emb
 
     # 2) no ft ckpt, train cell-specific model on the fly
-    d_odir = f"{odir}/dataset"
-    os.makedirs(d_odir, exist_ok=True)
     train_odir = f"{odir}/train"
     os.makedirs(train_odir, exist_ok=True)
-
-    print("Preparing dataset for cell-specific model...")
-    make_dataset(args.cell_type_peak, args.cell_type_bw, d_odir, files_dict, args.mode)
 
     print("Fine-tuning cell-specific model...")
     model_tuned, train_odir, model_config, data_config = retry_train(

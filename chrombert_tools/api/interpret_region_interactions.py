@@ -1,15 +1,15 @@
 """
-API interface for region embedding
+API interface for region interactions interpretation
 Provides a Python-friendly interface reusing the CLI implementation.
 """
 from types import SimpleNamespace
 from typing import Optional
 import numpy as np
 import pandas as pd
-from ..cli.infer_ep import run as _cli_run
+from ..cli.interpret_region_interactions import run as _cli_run
 
 
-def infer_ep(
+def interpret_region_interactions(
     region: str,
     odir: str = "./output",
     genome: str = "hg38",

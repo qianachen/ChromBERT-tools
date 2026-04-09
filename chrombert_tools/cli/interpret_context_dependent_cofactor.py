@@ -138,7 +138,7 @@ def infer_driver_factor_trn(
                     differential_threshold=differential_threshold,
                 )
             else:
-                print(f"No candidate cofactors found for dual-regulator {dual_regulator}")
+                print(f"No candidate context-dependent cofactors found for dual-regulator {dual_regulator}")
 
         print("Finished stage 4b: infer dual-functional regulator subnetworks")
 

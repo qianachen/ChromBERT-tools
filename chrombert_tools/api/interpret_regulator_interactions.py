@@ -1,29 +1,33 @@
 """
-API interface for cistrome embedding
+API interface for regulator-regulator interactions interpretation
 Provides a Python-friendly interface reusing the CLI implementation.
 """
 from types import SimpleNamespace
-from typing import Dict, List, Optional, Union, Tuple
-from ..cli.embed_cistrome import run as _cli_run
+from typing import List, Optional, Union
+from ..cli.interpret_regulator_interactions import run as _cli_run
 import os
 
-def embed_cistrome(
+def interpret_regulator_interactions(
     region: str,
-    cistrome: Union[str, List[str]],
     odir: str = "./output",
-    oname: str = "cistrome_emb",
     genome: str = "hg38",
     resolution: str = "1kb",
+    regulator: Optional[Union[str, List[str]]] = None,
     batch_size: int = 64,
     num_workers: int = 8,
+    quantile: float = 0.98,
+    k_hop: int = 1,
     chrombert_cache_dir: Optional[str] = None,
 ):
-
-    # Convert list to semicolon-separated string if needed
-    if isinstance(cistrome, list):
-        cistrome_str = ";".join(cistrome)
+    
+    # Convert regulator list to semicolon-separated string if needed
+    if regulator is not None:
+        if isinstance(regulator, list):
+            regulator_str = ";".join(regulator)
+        else:
+            regulator_str = regulator
     else:
-        cistrome_str = cistrome
+        regulator_str = None
     
     # Set default cache dir if not provided
     if chrombert_cache_dir is None:
@@ -32,18 +36,20 @@ def embed_cistrome(
     # Create args namespace (same as CLI)
     args = SimpleNamespace(
         region=region,
-        cistrome=cistrome_str,
+        regulator=regulator_str,
         odir=odir,
-        oname=oname,
         genome=genome.lower(),
         resolution=resolution,
         batch_size=batch_size,
         num_workers=num_workers,
+        quantile=quantile,
+        k_hop=k_hop,
         chrombert_cache_dir=chrombert_cache_dir,
     )
     
     # Run the core logic (reuse CLI implementation)
-    cistrome_means, cistrome_emb_dict, regions = _cli_run(args, return_data=True)
+    df_edges = _cli_run(args, return_data=True)
     
-    return cistrome_means, cistrome_emb_dict, regions
+    return df_edges
+
 

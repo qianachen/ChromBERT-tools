@@ -39,23 +39,28 @@ def build_interpret_config(
     args: Any,
     files_dict: dict,
     supervised_file_for_ignore_idx: str,
+    gep: bool = False,
+    flank_window: int = 4,
+    ignore_regulator: Optional[str] = None,
 ) -> Tuple[DatasetConfig, ChromBERTFTConfig]:
     """
     Build DatasetConfig + ChromBERTFTConfig like interpret_regulators_across_regions.
 
-    args must provide: genome, resolution, batch_size, gep, flank_window, ft_ckpt,
-    and optionally ignore_regulator (or use resolve_ignore_object separately — this
-    function reads args.ignore_regulator).
+    args must provide: genome, resolution, batch_size, ft_ckpt.
+    gep / flank_window: taken from args if present, else use the function parameters
+    (defaults: gep=False, flank_window=4). Optional: ignore_regulator on args.
 
     supervised_file_for_ignore_idx: TSV used only to init_dataset when computing ignore_index.
     """
+    ignore_regulator = getattr(args, "ignore_regulator", ignore_regulator)
     ignore, ignore_object = resolve_ignore_object(
-        getattr(args, "ignore_regulator", None),
+        ignore_regulator,
         files_dict["chrombert_regulator_file"],
     )
     ignore_index = None
-
-    if not args.gep:
+    gep = getattr(args, "gep", gep)
+    flank_window = getattr(args, "flank_window", flank_window)
+    if not gep:
         data_config = DatasetConfig(
             kind="GeneralDataset",
             supervised_file=None,
@@ -89,7 +94,7 @@ def build_interpret_config(
             batch_size=args.batch_size,
             num_workers=2,
             meta_file=files_dict["meta_file"],
-            flank_window=args.flank_window,
+            flank_window=flank_window,
         )
         if ignore:
             data_config.ignore = ignore
@@ -105,7 +110,7 @@ def build_interpret_config(
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
             finetune_ckpt=args.ft_ckpt,
-            gep_flank_window=args.flank_window,
+            gep_flank_window=flank_window,
             ignore=ignore,
             ignore_index=ignore_index,
         )
