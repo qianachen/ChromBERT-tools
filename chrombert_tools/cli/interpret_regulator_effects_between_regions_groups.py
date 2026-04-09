@@ -101,7 +101,7 @@ def run(args):
               help="ChromBERT cache directory (contains config/ anno/ checkpoint/ etc).")
 
 
-def interpret_regulators_across_regions(region1_file, region2_file, ft_ckpt, ignore_regulator, gep, flank_window, genome, resolution, odir, batch_size,
+def interpret_regulator_effects_between_regions_groups(region1_file, region2_file, ft_ckpt, ignore_regulator, gep, flank_window, genome, resolution, odir, batch_size,
                    chrombert_cache_dir):
     '''
     Identify regulators that differ between two region sets via embedding shift.
@@ -123,4 +123,4 @@ def interpret_regulators_across_regions(region1_file, region2_file, ft_ckpt, ign
 
 
 if __name__ == "__main__":
-    interpret_regulators_across_regions()
+    interpret_regulator_effects_between_regions_groups()

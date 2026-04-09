@@ -289,7 +289,7 @@ def run(args, return_data=False):
 # CLI
 # =========================
 
-@click.command(name="predict_tf_binding", context_settings={"help_option_names": ["-h", "--help"]})
+@click.command(name="impute_cistrome", context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=True, help="Region BED file.")
@@ -312,7 +312,7 @@ def run(args, return_data=False):
               default="~/.cache/chrombert/data", show_default=True,
               type=click.Path(file_okay=False),
               help="ChromBERT cache directory (containing config/ and anno/ subfolders).")
-def predict_tf_binding(region, cistrome, odir, oname, genome, resolution, batch_size, num_workers, chrombert_cache_dir):
+def impute_cistrome(region, cistrome, odir, oname, genome, resolution, batch_size, num_workers, chrombert_cache_dir):
     '''
     Predict TF binding on specified regions across cell types.
     '''
@@ -331,4 +331,4 @@ def predict_tf_binding(region, cistrome, odir, oname, genome, resolution, batch_
 
 
 if __name__ == "__main__":
-    predict_tf_binding()
+    impute_cistrome()

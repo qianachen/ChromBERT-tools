@@ -214,7 +214,7 @@ def run(args, return_data=False):
     type=click.Path(exists=True, dir_okay=False, readable=True),
 )
 
-def interpret_region_interactions(
+def interpret_region_region_interactions(
     region,
     region2,
     odir,
@@ -251,4 +251,4 @@ def interpret_region_interactions(
 
 
 if __name__ == "__main__":
-    interpret_region_interactions()
+    interpret_region_region_interactions()

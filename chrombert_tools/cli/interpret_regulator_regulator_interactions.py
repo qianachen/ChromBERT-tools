@@ -192,7 +192,7 @@ def run(args, return_data=False):
 @click.option("--k-hop", default=1, show_default=True, type=int,
               help="k-hop radius for subnetwork plotting.")
 
-def interpret_regulator_interactions(
+def interpret_regulator_regulator_interactions(
     region,
     regulator,
     odir,
@@ -229,5 +229,5 @@ def interpret_regulator_interactions(
 
 
 if __name__ == "__main__":
-    interpret_regulator_interactions()
+    interpret_regulator_regulator_interactions()
 

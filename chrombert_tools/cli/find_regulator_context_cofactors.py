@@ -10,7 +10,7 @@ import pandas as pd
 from .utils import resolve_paths, check_files, overlap_regulator_func
 from .utils_classfication import prepare_dataset, validate_args
 from .utils_interpret import embed_pool_func
-from .predict_region_function_class import load_or_train_model
+from .predict_region_function_classification import load_or_train_model
 from .interpret_context_dependent_cofactor import context_dependent_cofactor_analysis
 
 
@@ -297,7 +297,7 @@ def run(args):
         "annotations, checkpoints, and metadata."
     ),
 )
-def find_context_specific_cofactor(
+def find_regulator_context_cofactors(
     function_beds,
     function_modes,
     function_names,
@@ -343,5 +343,5 @@ def find_context_specific_cofactor(
 
 
 if __name__ == "__main__":
-    find_context_specific_cofactor()
+    find_regulator_context_cofactors()
     

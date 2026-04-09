@@ -6,7 +6,7 @@ from types import SimpleNamespace
 from .utils import resolve_paths, check_files
 from .utils_embed import build_cell_model_emb
 from .utils_interpret import build_interpret_config
-from .interpret_regulators_across_regions import regulator_effects_rank
+from .interpret_regulator_effects_between_regions_groups import regulator_effects_rank
 
 
 def run(args):

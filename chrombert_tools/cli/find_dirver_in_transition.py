@@ -6,9 +6,9 @@ from types import SimpleNamespace
 import pandas as pd
 
 from .utils import resolve_paths, check_files, check_region_file
-from .predict_region_activity import make_acc_dataset, load_train_model_acc, _semicolon_paths
+from .predict_region_activity_regression import make_acc_dataset, load_train_model_acc, _semicolon_paths
 from .predict_gene_expression import make_exp_dataset, load_train_model_gep
-from .interpret_regulators_across_regions import factor_rank_across_regions
+from .interpret_regulator_effects_between_regions_groups import factor_rank_across_regions
 
 def run(args):
     """Main execution function for finding driver factors in cell state transitions."""
