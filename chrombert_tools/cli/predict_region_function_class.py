@@ -444,7 +444,7 @@ def predict_region_function_class(
 
 
 if __name__ == "__main__":
-    predict_region_function_label()
+    predict_region_function_class()
 
 
 

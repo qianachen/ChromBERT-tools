@@ -282,12 +282,9 @@ def find_cell_key_regulator(
     
         Provide --ft-ckpt.
 
-        a) If --region1-file and --region2-file are also provided, the workflow will directly compare regulator relevance between the two
-            user-provided region sets.
+        a) If --region1-file and --region2-file are also provided, the workflow will directly compare regulator relevance between the two user-provided region sets.
 
-        b) If --region1-file and --region2-file are not provided,
-            you can provide --cell-type-bw and --cell-type-peak instead.The workflow will use the checkpoint together with the cell-type
-            accessibility data to identify region groups automatically and then rank candidate key regulators.
+        b) If --region1-file and --region2-file are not provided, you can provide --cell-type-bw and --cell-type-peak instead.The workflow will use the checkpoint together with the cell-type accessibility data to identify region groups automatically and then rank candidate key regulators.
     """
     args = SimpleNamespace(
         cell_type_bw=cell_type_bw,

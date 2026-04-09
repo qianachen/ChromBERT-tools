@@ -1,6 +1,7 @@
 import os
 import itertools
 from collections import defaultdict
+from typing import Optional
 
 import click
 from types import SimpleNamespace
@@ -83,11 +84,22 @@ def plot_dual_trn(
 
 
 def infer_driver_factor_trn(
-    args, dual_regulators, embs_pool_region1, embs_pool_region2, regulators
+    args,
+    dual_regulators,
+    embs_pool_region1,
+    embs_pool_region2,
+    regulators,
+    pair_results_subdir: Optional[str] = None,
 ):
     differential_threshold = getattr(args, "threshold", 0.1)
-    emb_odir = f"{args.odir}/emb";os.makedirs(emb_odir, exist_ok=True)
-    results_odir = f"{args.odir}/results";os.makedirs(results_odir, exist_ok=True)
+    emb_odir = f"{args.odir}/emb"
+    os.makedirs(emb_odir, exist_ok=True)
+    base_results = os.path.join(args.odir, "results")
+    if pair_results_subdir:
+        results_odir = os.path.join(base_results, pair_results_subdir)
+    else:
+        results_odir = base_results
+    os.makedirs(results_odir, exist_ok=True)
     
     cos_func1 = cosine_similarity(embs_pool_region1)
     cos_func2 = cosine_similarity(embs_pool_region2)
