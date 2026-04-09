@@ -184,25 +184,25 @@ def make_acc_dataset(args, files_dict, data_odir):
             args.mode = "full"
             split_data(total_region_signal, "", data_odir)
             print(f"  Full mode: using all {len(total_region_signal)} regions")
-        # if dual_state:
-        #     up_region = (
-        #         total_region_signal[total_region_signal["label"] > 1]
-        #         .sort_values("label", ascending=False)
-        #         .head(1000)
-        #         .reset_index(drop=True)
-        #     )
-        #     total_region_signal = total_region_signal.copy()
-        #     total_region_signal["abs_label"] = np.abs(total_region_signal["label"])
-        #     nochange_region = (
-        #         total_region_signal.query("cell1_signal > 0 or cell2_signal > 0")
-        #         .query("label <1 and label > -1")
-        #         .sort_values("abs_label")
-        #         .reset_index(drop=True)
-        #         .iloc[0:1000]
-        #     )
+        if dual_state:
+            up_region = (
+                total_region_signal[total_region_signal["label"] > 1]
+                .sort_values("label", ascending=False)
+                .head(1000)
+                .reset_index(drop=True)
+            )
+            total_region_signal = total_region_signal.copy()
+            total_region_signal["abs_label"] = np.abs(total_region_signal["label"])
+            nochange_region = (
+                total_region_signal.query("cell1_signal > 0 or cell2_signal > 0")
+                .query("label <1 and label > -1")
+                .sort_values("abs_label")
+                .reset_index(drop=True)
+                .iloc[0:1000]
+            )
 
-        #     up_region.to_csv(f"{data_odir}/up.csv", index=False)
-        #     nochange_region.to_csv(f"{data_odir}/nochange.csv", index=False)
+            up_region.to_csv(f"{data_odir}/up.csv", index=False)
+            nochange_region.to_csv(f"{data_odir}/nochange.csv", index=False)
 
         args.dual_state = dual_state
         with open(meta_path, "w") as f:
@@ -227,6 +227,42 @@ def prepare_dataset(args, files_dict, data_odir):
         )
     return args
 
+def load_train_model_acc(args, files_dict, odir):
+    if args.ft_ckpt is not None:
+        print(f"Using fine-tuned checkpoint: {args.ft_ckpt}")
+        data_config = DatasetConfig(
+            kind="GeneralDataset",
+            supervised_file=None,
+            hdf5_file=files_dict["hdf5_file"],
+            batch_size=args.batch_size,
+            num_workers=8,
+            meta_file=files_dict["meta_file"],
+        )
+        model_config = ChromBERTFTConfig(
+            genome=args.genome,
+            task="general",
+            dropout=0,
+            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+            pretrain_ckpt=files_dict["pretrain_ckpt"],
+            mtx_mask=files_dict["mtx_mask"],
+            finetune_ckpt=args.ft_ckpt,
+        )
+        model_tuned = model_config.init_model().cuda()
+        print("Finished stage 2 (loaded checkpoint)")
+    else:
+        model_tuned, train_try_odir, _, data_config = retry_train(
+            args,
+            files_dict,
+            cal_metrics_regression,
+            metcic="pearsonr",
+            min_threshold=0.2,
+            train_kind="regression",
+            task="general",
+            odir=odir,
+        )
+        train_odir = train_try_odir
+        print("Finished stage 2 (trained)")
+    return model_tuned, data_config
 
 # =========================
 # prediction (regression)
@@ -330,63 +366,6 @@ def _load_model_for_predict_acc(args, files_dict):
     return model_tuned, data_config
 
 
-# def generate_emb(model_tuned, data_config, sup_file, emb_odir, name, files_dict):
-#     model_tuned = model_tuned.eval()
-#     model_emb = model_tuned.get_embedding_manager()
-#     data_config.supervised_file = sup_file
-#     dl = data_config.init_dataloader()
-#     regulators = model_emb.list_regulator
-#     regulator_idx_dict = {regulator: idx for idx, regulator in enumerate(regulators)}
-
-#     total_counts = 0
-#     embs_pool = np.zeros((len(regulators), 768), dtype=np.float64)
-
-#     with torch.no_grad():
-#         for batch in tqdm(dl, total=len(dl)):
-#             for k, v in batch.items():
-#                 if isinstance(v, torch.Tensor):
-#                     batch[k] = v.cuda()
-#             total_counts += batch["input_ids"].shape[0]
-#             emb = model_emb(batch)
-#             emb_np = emb.float().cpu().numpy()
-#             embs_pool += emb_np.sum(axis=0)
-
-#         embs_pool /= total_counts
-
-#     embs_pool_dict = {
-#         regulator: embs_pool[regulator_idx_dict[regulator]] for regulator in regulators
-#     }
-#     out_pkl = os.path.join(emb_odir, f"{name}_regulator_embs_dict.pkl")
-#     with open(out_pkl, "wb") as f:
-#         pickle.dump(embs_pool_dict, f)
-
-#     return embs_pool, regulators
-
-
-# def infer_driver_factor(emb_odir, results_odir, data_config, model_tuned, data_odir, files_dict):
-#     up_emb, up_factors = generate_emb(
-#         model_tuned, data_config, f"{data_odir}/up.csv", emb_odir, "up", files_dict
-#     )
-#     nochange_emb, nochange_factors = generate_emb(
-#         model_tuned, data_config, f"{data_odir}/nochange.csv", emb_odir, "nochange", files_dict
-#     )
-#     assert up_factors == nochange_factors, "up and nochange factors are not the same"
-#     regulator_sim_df = factor_rank(up_emb, nochange_emb, up_factors, results_odir)
-#     if os.path.exists(files_dict["chrombert_factor_file"]):
-#         with open(files_dict["chrombert_factor_file"], "r") as f:
-#             factors = f.read().strip().split("\n")
-#             factors = [x.strip().lower() for x in factors]
-#             regulator_sim_df = (
-#                 regulator_sim_df.query("factors in @factors")
-#                 .sort_values(by="similarity")
-#                 .reset_index(drop=True)
-#             )
-#     regulator_sim_df["rank"] = regulator_sim_df.index + 1
-#     regulator_sim_df.to_csv(os.path.join(results_odir, "factor_importance_rank.csv"), index=False)
-#     print("Finished: infer driver factors from chromatin accessibility (top 25):")
-#     print(regulator_sim_df.head(n=25))
-
-
 def run(args):
     for attr, default in [
         ("ft_ckpt", None),
@@ -435,41 +414,8 @@ def run(args):
             print("Stage 2: train ChromBERT (accessibility fold change, two states)")
         else:
             print("Stage 2: train ChromBERT (state-1 accessibility as log2 signal)")
-
-        if args.ft_ckpt is not None:
-            print(f"Using fine-tuned checkpoint: {args.ft_ckpt}")
-            data_config = DatasetConfig(
-                kind="GeneralDataset",
-                supervised_file=None,
-                hdf5_file=files_dict["hdf5_file"],
-                batch_size=args.batch_size,
-                num_workers=8,
-                meta_file=files_dict["meta_file"],
-            )
-            model_config = ChromBERTFTConfig(
-                genome=args.genome,
-                task="general",
-                dropout=0,
-                pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
-                pretrain_ckpt=files_dict["pretrain_ckpt"],
-                mtx_mask=files_dict["mtx_mask"],
-                finetune_ckpt=args.ft_ckpt,
-            )
-            model_tuned = model_config.init_model().cuda()
-            print("Finished stage 2 (loaded checkpoint)")
-        else:
-            model_tuned, train_try_odir, _, data_config = retry_train(
-                args,
-                files_dict,
-                cal_metrics_regression,
-                metcic="pearsonr",
-                min_threshold=0.2,
-                train_kind="regression",
-                task="general",
-                odir=odir,
-            )
-            train_odir = train_try_odir
-            print("Finished stage 2 (trained)")
+            
+        model_tuned, data_config = load_train_model_acc(args, files_dict, odir)
 
     print("Stage 3: Predicting")
     predict(args, model_tuned, data_config, files_dict, data_odir)

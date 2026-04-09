@@ -29,15 +29,6 @@ def get_required_keys(args):
     """
     Get required cache keys for current mode.
     """
-    # required = [
-    #     "chrombert_region_file",
-    #     "chrombert_regulator_file",
-    #     "hdf5_file",
-    #     "pretrain_ckpt",
-    # ]
-    # if is_cell_specific(args):
-    #     required.append("mtx_mask")
-
     required = [
         "chrombert_region_file",
         "chrombert_regulator_file",

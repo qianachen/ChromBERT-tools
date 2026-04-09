@@ -11,7 +11,7 @@ from .utils import resolve_paths, check_files, overlap_regulator_func
 from .utils_classfication import prepare_dataset, validate_args
 from .utils_interpret import embed_pool_func
 from .predict_region_function_class import load_or_train_model
-from .interpret_context_dependent_cofactor import infer_driver_factor_trn
+from .interpret_context_dependent_cofactor import context_dependent_cofactor_analysis
 
 
 def _pair_results_subdir(name_a, name_b, i: int, j: int) -> str:
@@ -27,6 +27,39 @@ def _pair_results_subdir(name_a, name_b, i: int, j: int) -> str:
 
     return f"{i}_{j}_{slug(name_a)}_vs_{slug(name_b)}"
 
+def prepare_dataset_groups(args, files_dict, d_odir):
+    
+    prepare_dataset(args, files_dict, d_odir)
+
+    # Use the test split to define the region groups that will be compared later.
+    # In fast mode, the sampled test set is used; in full mode, the full test set is used.
+    if args.mode == "fast":
+        test_dataset = pd.read_csv(os.path.join(d_odir, "test_sampled.csv"))
+    else:
+        test_dataset = pd.read_csv(os.path.join(d_odir, "test.csv"))
+
+    labels_ordered = list(test_dataset["label"].unique())
+    if args.function_names and len(args.function_names) == len(labels_ordered):
+        display_names = list(args.function_names)
+    else:
+        display_names = [str(x) for x in labels_ordered]
+    if len(labels_ordered) < 2:
+        raise ValueError(
+            "At least two distinct labels are required for context comparison; "
+            f"found labels: {labels_ordered!r}."
+        )
+
+    # Save one region file per label so embeddings can be generated independently
+    # for each function class.
+    region_files = []
+    for label in labels_ordered:
+        region = test_dataset[test_dataset["label"] == label]
+        d_region = f"{d_odir}/region{label}"
+        os.makedirs(d_region, exist_ok=True)
+        region.to_csv(os.path.join(d_region, "model_input.tsv"), index=False,sep='\t')
+        region_file = os.path.join(d_region, "model_input.tsv")
+        region_files.append(region_file)
+    return region_files, display_names, labels_ordered
 
 def run(args):
     """
@@ -80,9 +113,6 @@ def run(args):
         ],
     )
 
-    # Optionally remove specific regulators from downstream analysis.
-    # This is useful when users want to exclude known confounders or regulators
-    # that should not be considered in the cofactor ranking.
     ignore_object = None
     if args.ignore_regulator is not None:
         overlap_ignore, _, _ = overlap_regulator_func(
@@ -90,58 +120,7 @@ def run(args):
         )
         ignore_object = ";".join(overlap_ignore) if overlap_ignore else None
     ignore = ignore_object is not None
-
-    # Step 1. Build the labeled dataset used for training and comparison.
-    # Each function class becomes one label, and regions are prepared in the format
-    # expected by the downstream model and embedding workflow.
-    print("Step 1/3: Preparing labeled region dataset...")
-    d_odir = os.path.join(odir, "dataset")
-    os.makedirs(d_odir, exist_ok=True)
-    prepare_dataset(args, files_dict, d_odir)
-
-    # Use the test split to define the region groups that will be compared later.
-    # In fast mode, the sampled test set is used; in full mode, the full test set is used.
-    if args.mode == "fast":
-        test_dataset = pd.read_csv(os.path.join(d_odir, "test_sampled.csv"))
-    else:
-        test_dataset = pd.read_csv(os.path.join(d_odir, "test.csv"))
-
-    labels_ordered = list(test_dataset["label"].unique())
-    if args.function_names and len(args.function_names) == len(labels_ordered):
-        display_names = list(args.function_names)
-    else:
-        display_names = [str(x) for x in labels_ordered]
-    if len(labels_ordered) < 2:
-        raise ValueError(
-            "At least two distinct labels are required for context comparison; "
-            f"found labels: {labels_ordered!r}."
-        )
-
-    # Save one region file per label so embeddings can be generated independently
-    # for each function class.
-    region_files = []
-    for label in labels_ordered:
-        region = test_dataset[test_dataset["label"] == label]
-        d_region = f"{d_odir}/region{label}"
-        os.makedirs(d_region, exist_ok=True)
-        region.to_csv(os.path.join(d_region, "model_input.tsv"), index=False,sep='\t')
-        region_file = os.path.join(d_region, "model_input.tsv")
-        region_files.append(region_file)
-
-    print("Finished step 1: labeled dataset prepared.")
-
-    # Step 2. Load a fine-tuned model if provided, or train/load one automatically.
-    # The resulting model is converted to an embedding manager for downstream
-    # regulator and cofactor analysis.
-    print("Step 2/3: Loading or training the model...")
-    model_tuned, data_config, train_odir = load_or_train_model(
-        args, files_dict, d_odir, ignore, ignore_object
-    )
-    model_emb = model_tuned.get_embedding_manager().cuda().bfloat16()
-    print("Finished step 2: model ready for embedding generation.")
-
-    # Step 3. Generate pooled embeddings for each label and compare every label pair.
-    # Each pairwise comparison is written to its own results subdirectory.
+    
     dual_regulator = args.dual_regulator
     overlap_dual_regulator = None
     if dual_regulator is not None:
@@ -149,10 +128,22 @@ def run(args):
             dual_regulator, files_dict["chrombert_regulator_file"]
         )
 
+    print("Step 1/3: Preparing labeled region dataset...")
+    d_odir = os.path.join(odir, "dataset")
+    os.makedirs(d_odir, exist_ok=True)
+    region_files, display_names, labels_ordered = prepare_dataset_groups(args, files_dict, d_odir)
+    print("Finished step 1: labeled dataset prepared.")
+
+    print("Step 2/3: Loading or training the model...")
+    model_tuned, data_config, train_odir = load_or_train_model(
+        args, files_dict, d_odir, ignore, ignore_object
+    )
+    model_emb = model_tuned.get_embedding_manager().cuda().bfloat16()
+    print("Finished step 2: model ready for embedding generation.")
+    
+    print("Step 3/3: Generating embeddings and running pairwise cofactor comparisons...")
     emb_odir = f"{odir}/emb"
     os.makedirs(emb_odir, exist_ok=True)
-
-    print("Step 3/3: Generating embeddings and running pairwise cofactor comparisons...")
 
     embed_by_label = []
     for idx, region_file in enumerate(region_files):
@@ -173,7 +164,7 @@ def run(args):
         print(f"Comparing {name_i!r} vs {name_j!r} ...")
         print(f"Results will be written to: results/{pair_dir}/")
 
-        infer_driver_factor_trn(
+        context_dependent_cofactor_analysis(
             args,
             overlap_dual_regulator,
             pool_i,

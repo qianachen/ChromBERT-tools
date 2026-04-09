@@ -161,33 +161,24 @@ def make_exp_dataset(args, files_dict, data_odir):
     test_data.to_csv(f"{data_odir}/test.csv", index=False)
     valid_data.to_csv(f"{data_odir}/valid.csv", index=False)
 
-    # if dual_state:
-    #     up_data = (
-    #         merge_exp_anno[merge_exp_anno["label"] > 1]
-    #         .sort_values("label", ascending=False)
-    #         .head(1000)
-    #         .reset_index(drop=True)
-    #     )
-    #     tmp = merge_exp_anno.copy()
-    #     tmp["abs_label"] = np.abs(tmp["label"])
-    #     nochange_data = (
-    #         tmp[(tmp["label"] > -0.5) & (tmp["label"] < 0.5)]
-    #         .sort_values("abs_label")
-    #         .reset_index(drop=True)
-    #         .iloc[0:1000]
-    #     )
-    # else:
-    #     sub = merge_exp_anno.copy()
-    #     up_data = sub.sort_values("label", ascending=False).head(1000).reset_index(drop=True)
-    #     med = sub["label"].median()
-    #     sub = sub.copy()
-    #     sub["_dev"] = (sub["label"] - med).abs()
-    #     nochange_data = (
-    #         sub.sort_values("_dev").head(1000).drop(columns=["_dev"]).reset_index(drop=True)
-    #     )
+    if dual_state:
+        up_data = (
+            merge_exp_anno[merge_exp_anno["label"] > 1]
+            .sort_values("label", ascending=False)
+            .head(1000)
+            .reset_index(drop=True)
+        )
+        tmp = merge_exp_anno.copy()
+        tmp["abs_label"] = np.abs(tmp["label"])
+        nochange_data = (
+            tmp[(tmp["label"] > -0.5) & (tmp["label"] < 0.5)]
+            .sort_values("abs_label")
+            .reset_index(drop=True)
+            .iloc[0:1000]
+        )
 
-    # up_data.to_csv(f"{data_odir}/up.csv", index=False)
-    # nochange_data.to_csv(f"{data_odir}/nochange.csv", index=False)
+        up_data.to_csv(f"{data_odir}/up.csv", index=False)
+        nochange_data.to_csv(f"{data_odir}/nochange.csv", index=False)
 
     args.dual_state = dual_state
     with open(meta_path, "w") as f:
@@ -195,6 +186,43 @@ def make_exp_dataset(args, files_dict, data_odir):
 
     return True
 
+def load_train_model_gep(args, files_dict, odir):
+    if args.ft_ckpt is not None:
+        print(f"Use fine-tuned ChromBERT checkpoint file: {args.ft_ckpt}")
+        data_config = DatasetConfig(
+            kind="MultiFlankwindowDataset",
+            supervised_file=None,
+            hdf5_file=files_dict["hdf5_file"],
+            batch_size=args.batch_size,
+            num_workers=2,
+            meta_file=files_dict["meta_file"],
+            flank_window=args.flank_window,
+        )
+        model_config = ChromBERTFTConfig(
+            genome=args.genome,
+            task="gep",
+            dropout=0,
+            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+            pretrain_ckpt=files_dict["pretrain_ckpt"],
+            finetune_ckpt=args.ft_ckpt,
+            mtx_mask=files_dict["mtx_mask"],
+            gep_flank_window=args.flank_window,
+        )
+        model_tuned = model_config.init_model().cuda()
+        print("Finished stage 2 (loaded checkpoint)")
+    else:
+        model_tuned, train_try_odir, model_config, data_config = retry_train(
+            args,
+            files_dict,
+            cal_metrics_regression,
+            metcic="pearsonr",
+            min_threshold=0.2,
+            train_kind="regression",
+            task="gep",
+            odir=odir,
+        )
+        print("Finished stage 2 (trained)")
+    return model_tuned, data_config
 
 def prepare_dataset(args, files_dict, data_odir):
     os.makedirs(data_odir, exist_ok=True)
@@ -303,61 +331,6 @@ def _load_model_for_predict_gep(args, files_dict):
     return model_tuned, data_config
 
 
-# def generate_emb(model_tuned, data_config, sup_file, emb_odir, name, files_dict):
-#     model_tuned = model_tuned.eval()
-#     model_emb = model_tuned.get_embedding_manager()
-#     data_config.supervised_file = sup_file
-#     dl = data_config.init_dataloader()
-#     regulators = model_emb.list_regulator
-#     regulator_idx_dict = {regulator: idx for idx, regulator in enumerate(regulators)}
-
-#     total_counts = 0
-#     embs_pool = np.zeros((len(regulators), 768), dtype=np.float64)
-
-#     with torch.no_grad():
-#         for batch in tqdm(dl, total=len(dl)):
-#             for k, v in batch.items():
-#                 if isinstance(v, torch.Tensor):
-#                     batch[k] = v.cuda()
-#             total_counts += batch["input_ids"].shape[0]
-#             emb = model_emb(batch)
-#             emb_np = emb.float().cpu().numpy()
-#             embs_pool += emb_np.sum(axis=0)
-
-#         embs_pool /= total_counts
-
-#     embs_pool_dict = {
-#         regulator: embs_pool[regulator_idx_dict[regulator]] for regulator in regulators
-#     }
-#     out_pkl = os.path.join(emb_odir, f"{name}_regulator_embs_dict.pkl")
-#     with open(out_pkl, "wb") as f:
-#         pickle.dump(embs_pool_dict, f)
-
-#     return embs_pool, regulators
-
-
-# def infer_driver_factor(emb_odir, results_odir, data_config, model_tuned, data_odir, files_dict):
-#     up_emb, up_factors = generate_emb(
-#         model_tuned, data_config, f"{data_odir}/up.csv", emb_odir, "up", files_dict
-#     )
-#     nochange_emb, nochange_factors = generate_emb(
-#         model_tuned, data_config, f"{data_odir}/nochange.csv", emb_odir, "nochange", files_dict
-#     )
-#     assert up_factors == nochange_factors, "up and nochange factors are not the same"
-#     regulator_sim_df = factor_rank(up_emb, nochange_emb, up_factors, results_odir)
-#     if os.path.exists(files_dict["chrombert_factor_file"]):
-#         with open(files_dict["chrombert_factor_file"], "r") as f:
-#             factors = f.read().strip().split("\n")
-#             factors = [x.strip().lower() for x in factors]
-#             regulator_sim_df = (
-#                 regulator_sim_df.query("factors in @factors")
-#                 .sort_values(by="similarity")
-#                 .reset_index(drop=True)
-#             )
-#     regulator_sim_df["rank"] = regulator_sim_df.index + 1
-#     regulator_sim_df.to_csv(os.path.join(results_odir, "factor_importance_rank.csv"), index=False)
-#     print("Finished: infer driver factors from expression (top 25):")
-#     print(regulator_sim_df.head(n=25))
 
 
 def run(args):
@@ -410,43 +383,8 @@ def run(args):
         else:
             print("Stage 2: train ChromBERT (state-1 expression as log1p TPM)")
 
-        if args.ft_ckpt is not None:
-            print(f"Using fine-tuned checkpoint: {args.ft_ckpt}")
-            data_config = DatasetConfig(
-                kind="MultiFlankwindowDataset",
-                supervised_file=None,
-                hdf5_file=files_dict["hdf5_file"],
-                batch_size=args.batch_size,
-                num_workers=2,
-                meta_file=files_dict["meta_file"],
-                flank_window=args.flank_window,
-            )
-            model_config = ChromBERTFTConfig(
-                genome=args.genome,
-                task="gep",
-                dropout=0,
-                pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
-                pretrain_ckpt=files_dict["pretrain_ckpt"],
-                finetune_ckpt=args.ft_ckpt,
-                mtx_mask=files_dict["mtx_mask"],
-                gep_flank_window=args.flank_window,
-            )
-            model_tuned = model_config.init_model().cuda()
-            print("Finished stage 2 (loaded checkpoint)")
-        else:
-            model_tuned, train_try_odir, model_config, data_config = retry_train(
-                args,
-                files_dict,
-                cal_metrics_regression,
-                metcic="pearsonr",
-                min_threshold=0.2,
-                train_kind="regression",
-                task="gep",
-                odir=odir,
-            )
-            train_odir = train_try_odir
-            print("Finished stage 2 (trained)")
-
+        model_tuned, data_config = load_train_model_gep(args, files_dict, odir)
+        
     print("Stage 3: Predicting")
     predict(args, model_tuned, data_config, files_dict, data_odir)
     print("Finished stage 3")

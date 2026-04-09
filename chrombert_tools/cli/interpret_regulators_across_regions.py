@@ -10,6 +10,13 @@ from .utils_interpret import (
 )
 
 
+
+def regulator_effects_rank(data_config,model_emb,region1_file,region2_file,emb_odir,results_odir):
+    embs_pool_region1, regulators = embed_pool_func(data_config, model_emb, region1_file, emb_odir, "region1")
+    embs_pool_region2, regulators = embed_pool_func(data_config, model_emb, region2_file, emb_odir, "region2")
+    cos_sim_df = factor_rank(embs_pool_region1, embs_pool_region2, regulators, results_odir)
+    return cos_sim_df
+
 def run(args):
     odir = args.odir
     os.makedirs(odir, exist_ok=True)
@@ -44,14 +51,8 @@ def run(args):
     )
     _, model_emb = load_interpret_model(model_config)
 
-    # 3) generate embeddings
-    embs_pool_region1, regulators = embed_pool_func(data_config, model_emb, region1_file, emb_odir, "region1")
-    embs_pool_region2, regulators = embed_pool_func(data_config, model_emb, region2_file, emb_odir, "region2")
-
-    # 4) key regulator
-
-    print("Find key regulator:")
-    cos_sim_df = factor_rank(embs_pool_region1, embs_pool_region2, regulators, results_odir)
+    # 3) key regulators across regions
+    cos_sim_df = regulator_effects_rank(data_config, model_emb, region1_file, region2_file, emb_odir, results_odir)
     print("Identify key regulators across regions(top 25)")
     print(cos_sim_df.head(n=25))
 

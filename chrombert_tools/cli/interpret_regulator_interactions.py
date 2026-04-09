@@ -9,7 +9,7 @@ import networkx as nx
 import matplotlib.pyplot as plt
 
 from .utils import resolve_paths, check_files
-from .utils import check_region_file, overlap_regulator_func, chrom_to_int_series
+from .utils import check_region_file, overlap_regulator_func
 from .utils_interpret import (
     build_interpret_config,
     embed_pool_func,
@@ -53,7 +53,7 @@ def plot_regulator_subnetwork(G: nx.Graph, target_reg: str, odir: str, k_hop: in
     return None
 
 
-def build_trn_from_embeddings(embs: np.ndarray, regulators: list[str], odir: str, quantile: float):
+def build_regulator_subnetwork(embs: np.ndarray, regulators: list[str], odir: str, quantile: float):
     """
     Build a co-association graph based on cosine similarity thresholded by quantile.
     Save:
@@ -109,14 +109,6 @@ def run(args, return_data=False):
 
     # Intersect user regions with ChromBERT regions
     overlap_bed = check_region_file(args.region, files_dict, odir)
-
-    # Convert chrom names to integer codes
-    first_chrom = str(overlap_bed["chrom"].iloc[0])
-    if "chr" in first_chrom.lower():
-        overlap_bed["chrom"] = chrom_to_int_series(overlap_bed["chrom"].astype(str), args.genome)
-    overlap_bed = overlap_bed.dropna(subset=["chrom"]).copy()
-    overlap_bed["chrom"] = overlap_bed["chrom"].astype(int)
-    overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
     sup_file = f"{odir}/model_input.tsv"
 
     # Optional: filter regulators for subnetwork plotting
@@ -144,7 +136,7 @@ def run(args, return_data=False):
     )
 
     # Build TRN graph by cosine similarity quantile threshold
-    G, threshold, _, df_edges = build_trn_from_embeddings(embs_pool, regulators, odir, quantile=args.quantile)
+    G, threshold, _, df_edges = build_regulator_subnetwork(embs_pool, regulators, odir, quantile=args.quantile)
 
     # Optional: plot subnetworks for user-specified regulators
     if focus_regs is not None:

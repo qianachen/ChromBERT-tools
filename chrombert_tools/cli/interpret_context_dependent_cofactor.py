@@ -20,7 +20,7 @@ from .utils_interpret import (
     build_interpret_config,
     load_interpret_model,
 )
-
+from .interpret_regulator_interactions import build_regulator_subnetwork
 
 
 
@@ -83,7 +83,7 @@ def plot_dual_trn(
     print("Yellow color represents function1 subnetwork; blue color represents function2 subnetwork.")
 
 
-def infer_driver_factor_trn(
+def context_dependent_cofactor_analysis(
     args,
     dual_regulators,
     embs_pool_region1,
@@ -101,20 +101,13 @@ def infer_driver_factor_trn(
         results_odir = base_results
     os.makedirs(results_odir, exist_ok=True)
     
-    cos_func1 = cosine_similarity(embs_pool_region1)
-    cos_func2 = cosine_similarity(embs_pool_region2)
-    df_cos_func1 = pd.DataFrame(cos_func1, columns=regulators, index=regulators)
-    df_cos_func2 = pd.DataFrame(cos_func2, columns=regulators, index=regulators)
-
-    df_cos_func1.to_csv(
-        os.path.join(results_odir, "regulator_cosine_similarity_on_function1_regions.csv")
-    )
-    df_cos_func2.to_csv(
-        os.path.join(results_odir, "regulator_cosine_similarity_on_function2_regions.csv"))
+    func1_odir = f"{results_odir}/func1"; os.makedirs(func1_odir, exist_ok=True)
+    func2_odir = f"{results_odir}/func2"; os.makedirs(func2_odir, exist_ok=True)
+    _, thre_func1, df_cos_func1, _ = build_regulator_subnetwork(embs_pool_region1, regulators, func1_odir, quantile=args.quantile)
+    _, thre_func2, df_cos_func2, _ = build_regulator_subnetwork(embs_pool_region2, regulators, func2_odir, quantile=args.quantile)
+    
 
     if dual_regulators is not None:
-        thre_func1 = np.percentile(cos_func1.flatten(), 95)
-        thre_func2 = np.percentile(cos_func2.flatten(), 95)
         for _idx, dual_regulator in enumerate(dual_regulators):
             df_cos_reg = pd.DataFrame(
                 index=regulators,
@@ -200,10 +193,8 @@ def run(args):
     embs_pool_region1, regulators = embed_pool_func(data_config, model_emb, region1_file, emb_odir, "region1")
     embs_pool_region2, regulators = embed_pool_func(data_config, model_emb, region2_file, emb_odir, "region2")
 
-
-
     # 5) infer driver factor in different regions
-    infer_driver_factor_trn(
+    context_dependent_cofactor_analysis(
         args, overlap_dual_regulator, embs_pool_region1, embs_pool_region2, regulators
     )
     print("Finished all stages!")
@@ -251,6 +242,8 @@ def run(args):
     type=float,
     help="Threshold for the embedding similarity difference between two regions used to identify a regulator as a context-dependent cofactor.",
 )
+@click.option("--quantile", default=0.95, show_default=True, type=float,
+              help="Quantile threshold for cosine similarity edges. Default: 0.95.")
 @click.option(
     "--odir",
     default="./output",
