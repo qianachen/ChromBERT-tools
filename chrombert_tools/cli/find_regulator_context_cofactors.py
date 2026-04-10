@@ -179,7 +179,7 @@ def run(args):
 
 
 @click.command(
-    name="find_context_specific_cofactor",
+    name="find_regulator_context_cofactors",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(
@@ -268,6 +268,16 @@ def run(args):
     ),
 )
 @click.option(
+    "--threshold",
+    "threshold",
+    default=0.1,
+    show_default=True,
+    type=float,
+    help="Threshold for the embedding similarity difference between two regions used to identify a regulator as a context-dependent cofactor.",
+)
+@click.option("--quantile", default=0.95, show_default=True, type=float,
+              help="Quantile threshold for cosine similarity edges. Default: 0.95.")
+@click.option(
     "--batch-size",
     "batch_size",
     default=4,
@@ -303,6 +313,8 @@ def find_regulator_context_cofactors(
     function_names,
     dual_regulator,
     ignore_regulator,
+    threshold,
+    quantile,
     odir,
     genome,
     resolution,
@@ -331,6 +343,8 @@ def find_regulator_context_cofactors(
         function_names=list(function_names),
         dual_regulator=dual_regulator,
         ignore_regulator=ignore_regulator,
+        threshold=threshold,
+        quantile=quantile,
         odir=odir,
         genome=genome,
         resolution=resolution,

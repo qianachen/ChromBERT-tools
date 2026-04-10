@@ -154,7 +154,7 @@ def run(args, return_data=False):
         return df_edges
 
 
-@click.command(name="interpret_regulator_interactions", context_settings={"help_option_names": ["-h", "--help"]})
+@click.command(name="interpret_regulator_regulator_interactions", context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--region", "region",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=True, help="Region BED file (focus regions).")

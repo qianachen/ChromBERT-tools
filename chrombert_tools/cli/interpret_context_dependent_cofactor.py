@@ -20,7 +20,7 @@ from .utils_interpret import (
     build_interpret_config,
     load_interpret_model,
 )
-from .interpret_regulator_interactions import build_regulator_subnetwork
+from .interpret_regulator_regulator_interactions import build_regulator_subnetwork
 
 
 
@@ -92,6 +92,7 @@ def context_dependent_cofactor_analysis(
     pair_results_subdir: Optional[str] = None,
 ):
     differential_threshold = getattr(args, "threshold", 0.1)
+    quantile = getattr(args, "quantile", 0.95)
     emb_odir = f"{args.odir}/emb"
     os.makedirs(emb_odir, exist_ok=True)
     base_results = os.path.join(args.odir, "results")
@@ -100,6 +101,7 @@ def context_dependent_cofactor_analysis(
     else:
         results_odir = base_results
     os.makedirs(results_odir, exist_ok=True)
+    
     
     func1_odir = f"{results_odir}/func1"; os.makedirs(func1_odir, exist_ok=True)
     func2_odir = f"{results_odir}/func2"; os.makedirs(func2_odir, exist_ok=True)
@@ -145,7 +147,7 @@ def context_dependent_cofactor_analysis(
             else:
                 print(f"No candidate context-dependent cofactors found for dual-regulator {dual_regulator}")
 
-        print("Finished stage 4b: infer dual-functional regulator subnetworks")
+        print("Finished step: infer dual-functional regulator subnetworks")
 
 
 def run(args):

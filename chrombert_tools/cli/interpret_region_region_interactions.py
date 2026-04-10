@@ -133,7 +133,7 @@ def run(args, return_data=False):
 
 
 @click.command(
-    name="interpret_region_interactions",
+    name="interpret_region_region_interactions",
     context_settings={"help_option_names": ["-h", "--help"]},
 )
 @click.option(

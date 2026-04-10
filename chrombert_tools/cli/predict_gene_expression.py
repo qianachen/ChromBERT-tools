@@ -68,7 +68,7 @@ def make_exp_dataset(args, files_dict, data_odir):
     dual_state = len(paths2) > 0
 
     if not paths1:
-        return False
+        return args, False
 
     gene_meta = (
         pd.read_csv(files_dict["gene_meta_tsv"], sep="\t")
@@ -85,7 +85,7 @@ def make_exp_dataset(args, files_dict, data_odir):
                 args.dual_state = json.load(f).get("dual_state", True)
         else:
             args.dual_state = True
-        return True
+        return args, True
 
     print("Processing stage 1: prepare expression dataset")
     if dual_state:
@@ -184,7 +184,8 @@ def make_exp_dataset(args, files_dict, data_odir):
     with open(meta_path, "w") as f:
         json.dump({"dual_state": dual_state}, f)
 
-    return True
+    return args, True
+
 
 def load_train_model_gep(args, files_dict, odir):
     if args.ft_ckpt is not None:
@@ -226,7 +227,7 @@ def load_train_model_gep(args, files_dict, odir):
 
 def prepare_dataset(args, files_dict, data_odir):
     os.makedirs(data_odir, exist_ok=True)
-    ok = make_exp_dataset(args, files_dict, data_odir)
+    args, ok = make_exp_dataset(args, files_dict, data_odir)
     if not ok:
         raise ValueError(
             "Provide --exp-tpm1 (one or more CSV paths separated by ';'). "

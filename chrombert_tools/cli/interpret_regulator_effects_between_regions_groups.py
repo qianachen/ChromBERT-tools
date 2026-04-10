@@ -64,7 +64,7 @@ def run(args):
     print(f"Key regulators across regions saved to: {results_odir}/factor_importance_rank.csv")
 
 
-@click.command(name="interpret_regulators_across_regions", context_settings={"help_option_names": ["-h", "--help"]})
+@click.command(name="interpret_regulator_effects_between_regions_groups", context_settings={"help_option_names": ["-h", "--help"]})
 @click.option("--region1-file", "region1_file",
               type=click.Path(exists=True, dir_okay=False, readable=True),
               required=True, help="Region 1 file.")
