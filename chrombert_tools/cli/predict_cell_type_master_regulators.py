@@ -170,6 +170,24 @@ def run(args):
         "annotations, checkpoints, and reference embeddings."
     ),
 )
+@click.option(
+    "--model-config",
+    "model_config",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    required=False,
+    default=None,
+    show_default=True,
+    help="Path to a model configuration file.",
+)
+@click.option(
+    "--region-config",
+    "region_config",
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+    required=False,
+    default=None,
+    show_default=True,
+    help="Path to a region configuration file.",
+)
 def predict_cell_type_master_regulators(
     cell_type_bw,
     cell_type_peak,
@@ -180,6 +198,8 @@ def predict_cell_type_master_regulators(
     chrombert_cache_dir,
     genome,
     resolution,
+    model_config,
+    region_config,
 ):
     """
     Find candidate key regulators for a target cell type or between two region sets.
@@ -206,6 +226,8 @@ def predict_cell_type_master_regulators(
         mode=mode,
         batch_size=batch_size,
         chrombert_cache_dir=chrombert_cache_dir,
+        model_config=model_config,
+        region_config=region_config,
     )
     run(args)
 

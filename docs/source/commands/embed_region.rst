@@ -1,16 +1,28 @@
-============
+==============
 embed_region
-============
+==============
 
-Extract general region embeddings from ChromBERT.
+Extract **768-dimensional region embeddings** and/or **gene-level embeddings** (promoter pooling) from ChromBERT, using the **pre-trained** model by default or a **cell-type-specific** model when you pass accessibility tracks or a fine-tuned checkpoint.
 
 Overview
 ========
 
-The ``embed_region`` command extracts 768-dimensional embeddings for user-specified genomic regions using the pre-trained ChromBERT model. These embeddings capture general regulatory patterns.
+You must provide **at least one** of ``--region`` or ``--gene`` (``validate_args``).
+
+**Mode** (``is_cell_specific`` in ``utils_embed.py``):
+
+* **General:** neither ``--ft-ckpt`` nor **both** ``--cell-type-bw`` and ``--cell-type-peak``. Uses pre-trained weights; may **slice** precomputed ``region_emb_npy`` from the cache when available (see ``run_region_general`` / ``run_gene_general``).
+* **Cell-type-specific:** ``--ft-ckpt`` is set **or** **both** ``--cell-type-bw`` and ``--cell-type-peak`` are set. Then ``build_cell_model_emb`` runs once; embeddings are computed with ``run_region_cell`` and/or ``run_gene_cell``.
+
+In cell-type mode you must supply **either** ``--ft-ckpt`` **or** **both** BigWig and peak files (same rule as ``embed_regulator``).
+
+Only the branches you request run: e.g. ``--gene`` alone skips ``run_region_*``; ``--region`` alone skips ``run_gene_*``.
 
 Basic Usage
 ===========
+
+Regions only (general)
+----------------------
 
 .. code-block:: bash
 
@@ -20,64 +32,141 @@ Basic Usage
      --resolution 1kb \
      --odir output
 
-If you are using the ChromBERT Singularity image, you can run:
+Genes only (general)
+--------------------
 
 .. code-block:: bash
 
-   singularity exec --nv /path/to/chrombert.sif chrombert-tools embed_region \
-     --region regions.bed \
+   chrombert-tools embed_region \
+     --gene "TP53;BRD4" \
      --genome hg38 \
      --resolution 1kb \
      --odir output
 
+Regions + genes in one run (general)
+------------------------------------
+
+.. code-block:: bash
+
+   chrombert-tools embed_region \
+     --region regions.bed \
+     --gene "TP53;BRD4" \
+     --genome hg38 \
+     --resolution 1kb \
+     --odir output
+
+Cell-type-specific: fine-tune from accessibility
+----------------------------------------------
+
+.. code-block:: bash
+
+   chrombert-tools embed_region \
+     --region regions.bed \
+     --cell-type-bw cell_accessibility.bigwig \
+     --cell-type-peak cell_peaks.bed \
+     --genome hg38 \
+     --resolution 1kb \
+     --mode fast \
+     --odir output_cell
+
+Cell-type-specific: reuse checkpoint
+------------------------------------
+
+.. code-block:: bash
+
+   chrombert-tools embed_region \
+     --region regions.bed \
+     --ft-ckpt path/to/finetuned.ckpt \
+     --genome hg38 \
+     --resolution 1kb \
+     --odir output_ckpt
+
+Singularity
+-----------
+
+Prefix with ``singularity exec --nv /path/to/chrombert.sif`` as for other ``chrombert-tools`` commands.
+
 Parameters
 ==========
 
-Required Parameters
--------------------
+At least one required
+----------------------
 
 ``--region``
-   Regions of interest in BED/CSV/TSV format. For CSV/TSV, the file must contain columns: ``chrom``, ``start``, ``end``.
+   BED or CSV/TSV with ``chrom``, ``start``, ``end``. Drives ``check_region_file`` and ``run_region_*``.
 
-Optional Parameters
--------------------
+``--gene``
+   Gene symbols or Ensembl IDs, ``;``-separated; lowercased for matching (``parse_focus_genes`` / gene meta).
 
-``--help``
-   Show help message.
+Cell-type-specific (optional; selects mode)
+-------------------------------------------
 
-``--resolution``
-   Resolution: ``200bp``, ``1kb`` (default), ``2kb``, or ``4kb``. For ``mm10``, only ``1kb`` is supported.
+``--cell-type-bw``
+   Cell-type accessibility **BigWig**.
 
-``--genome``
-   Genome assembly: ``hg38`` (default) or ``mm10``.
+``--cell-type-peak``
+   Cell-type **peak BED**; use with ``--cell-type-bw`` to fine-tune when ``--ft-ckpt`` is absent.
+
+``--ft-ckpt``
+   Fine-tuned checkpoint; enables cell-type path **without** BigWig/peaks and **skips** fine-tuning.
+
+``--mode``
+   ``fast`` or ``full``: used when **training** the cell-specific model (BigWig + peak, no ``--ft-ckpt``). See Click help text in ``embed_region.py``.
+
+Other options
+-------------
 
 ``--odir``
-   Output directory (default: ``./output``).
+   Output directory (default ``./output``).
 
-``--batch-size``
-   Region batch size (default: 4).
+``--oname``
+   Name stem (default ``embedding``). Region array: ``region_emb_<oname>.npy``; gene pickle: ``gene_emb_<oname>.pkl``.
 
-``--num-workers``
-   Number of dataloader workers (default: 8).
+``--genome``, ``--resolution``, ``--batch-size``
+   Reference genome, ChromBERT resolution, and dataloader batch size (default batch ``4``).
 
 ``--chrombert-cache-dir``
-   ChromBERT cache directory (default: ``~/.cache/chrombert/data``). If your cache is located elsewhere, set this path accordingly.
+   Data cache root (default ``~/.cache/chrombert/data``).
+
+``--chrombert-region-file``, ``--chrombert-region-emb-file``, ``--chrombert-gene-meta``
+   Optional overrides for reference BED, cached region ``.npy``, and gene meta TSV (passed through ``resolve_paths``).
 
 Output Files
 ============
 
-``region_emb.npy``
-   NumPy array containing region embeddings (shape: ``[n_regions, 768]``).
+When ``--region`` is used
+-------------------------
 
-   .. code-block:: python
+* ``region_emb_<oname>.npy`` — array shape ``(n_overlap_rows, 768)`` (one row per overlapping ChromBERT bin in ``overlap_bed``; a single input interval can yield multiple rows).
+* ``overlap_region.bed`` / ``no_overlap_region.bed`` — overlap diagnostics (from ``check_region_file`` / ``overlap_region`` pipeline).
+* Log line ``Embedding type: general`` or ``cell-specific`` from ``report_region``.
 
-      import numpy as np
+``report_region`` counts lines in ``args.region`` for the “total focus regions” summary; it requires ``--region`` to be set (gene-only runs do not call ``report_region``).
 
-      embeddings = np.load("region_emb.npy")
-      print(embeddings.shape)  # (n_regions, 768)
+When ``--gene`` is used
+-----------------------
 
-``overlap_region.bed``
-   Regions that overlap with ChromBERT regions (see ``<chrombert-cache-dir>/config/*region.bed``).
+* ``gene_emb_<oname>.pkl`` — ``dict`` mapping matched gene keys to ``(768,)`` vectors (mean over promoter-associated bins in ``pool_gene_embeddings``).
+* ``overlap_genes_meta.tsv`` — matched gene metadata (see ``report_gene``).
+* Intermediate ``model_input_gene.tsv`` under ``--odir`` for the gene bin table.
+* ``Embedding type: general`` or ``cell-specific`` from ``report_gene``.
 
-``no_overlap_region.bed``
-   Regions that do not overlap with ChromBERT regions (see ``<chrombert-cache-dir>/config/*region.bed``).
+General path may print **“Using cached region embeddings…”** when ``region_emb_npy`` exists on disk and is used for slicing (no forward pass), unless an ``ignore_regulator`` attribute is set on ``args`` (reserved for API callers).
+
+.. code-block:: python
+
+   import numpy as np
+   import pickle
+
+   reg = np.load("output/region_emb_embedding.npy")
+   print(reg.shape)
+
+   with open("output/gene_emb_embedding.pkl", "rb") as f:
+       gene_emb = pickle.load(f)
+
+Tips
+====
+
+1. **Cell-type mode:** supply **either** ``--ft-ckpt`` **or** **both** ``--cell-type-bw`` and ``--cell-type-peak``.
+2. **Gene meta:** if the default gene meta TSV is missing, the tool may **download** ChromBERT data into ``--chrombert-cache-dir`` (``load_gene_meta``).
+3. For full flag text, run ``chrombert-tools embed_region -h``.

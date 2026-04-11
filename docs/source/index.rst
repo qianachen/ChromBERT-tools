@@ -16,27 +16,47 @@ Features
 ChromBERT-tools CLI
 ---------------------
 
-Generation of regulation-informed embeddings
-^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Run ``chrombert-tools --help`` for the authoritative list of subcommands. The :doc:`usage` page groups RST references for each registered command.
 
-* :doc:`commands/embed_cistrome`: Generate cistrome embeddings for specified regions
-* :doc:`commands/embed_gene`: Generate gene embeddings
-* :doc:`commands/embed_region`: Generate region embeddings for specified regions
-* :doc:`commands/embed_regulator`: Generate regulator embeddings for specified regions
-* :doc:`commands/embed_cell_cistrome`: Generate cell-type-specific cistrome embeddings for specified regions
-* :doc:`commands/embed_cell_gene`: Generate cell-type-specific gene embeddings
-* :doc:`commands/embed_cell_region`: Generate cell-type-specific region embeddings for specified regions
-* :doc:`commands/embed_cell_regulator`: Generate cell-type-specific regulator embeddings for specified regions
+Embeddings
+^^^^^^^^^^
 
+* :doc:`commands/embed_region`
+* :doc:`commands/embed_regulator`
 
-Interpretation of regulation-informed embeddings
+Supervised models & prediction
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* :doc:`commands/region_function_classification`
+* :doc:`commands/region_activity_regression`
+* :doc:`commands/gene_activity_repression`
+* :doc:`commands/predict_cell_type_master_regulators`
+* :doc:`commands/predict_transition_driver_regulators`
+* :doc:`commands/predict_regulator_context_cofactors`
+* :doc:`commands/predict_tf_binding_regions`
+
+Interpretation & region–regulator analysis
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+* :doc:`commands/interpret_region_region_interactions`
+* :doc:`commands/interpret_regulator_regulator_interactions`
+* :doc:`commands/interpret_regulator_effects_between_region_groups`
+
+Legacy / tutorial RST pages (older example names)
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-* :doc:`commands/infer_ep`: Infer enhancer-promoter loops on specified regions
-* :doc:`commands/infer_regulator_network`: Infer regulator-regulator networks on specified regions
-* :doc:`commands/impute_cistrome`: Impute cistrome data on specified regions
-* :doc:`commands/infer_cell_key_regulator`: Infer cell-type-specific key regulators on specified regions
-* :doc:`commands/find_driver_in_transition`: Find driver factors in cell-state transitions
-* :doc:`commands/find_context_specific_cofactor`: Find context-specific cofactors in different regions
+
+* :doc:`commands/embed_cistrome`
+* :doc:`commands/embed_gene`
+* :doc:`commands/embed_cell_cistrome`
+* :doc:`commands/embed_cell_gene`
+* :doc:`commands/embed_cell_region`
+* :doc:`commands/embed_cell_regulator`
+* :doc:`commands/infer_ep`
+* :doc:`commands/infer_regulator_network`
+* :doc:`commands/impute_cistrome`
+* :doc:`commands/infer_cell_key_regulator`
+* :doc:`commands/find_driver_in_transition`
+* :doc:`commands/find_context_specific_cofactor`
 
 Quick Start
 -----------

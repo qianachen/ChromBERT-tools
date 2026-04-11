@@ -22,47 +22,55 @@ To get help for a specific command:
 CLI Reference
 =============
 
-Generation of regulation-informed embeddings
---------------------------------------------
+``chrombert-tools`` subcommands (see ``chrombert-tools --help``) are documented below. Additional pages under **Legacy / tutorial command names** keep older notebook titles; where the CLI name differs, the page notes the current subcommand.
 
-Generate regulation-informed embeddings from the pre-trained ChromBERT model or fine-tuned ChromBERT model:
+Embeddings
+----------
 
-Commands
-~~~~~~~~~
+.. toctree::
+   :maxdepth: 1
+
+   commands/embed_region
+   commands/embed_regulator
+
+Supervised models & prediction
+------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   commands/region_function_classification
+   commands/region_activity_regression
+   commands/gene_activity_repression
+   commands/predict_cell_type_master_regulators
+   commands/predict_transition_driver_regulators
+   commands/predict_regulator_context_cofactors
+   commands/predict_tf_binding_regions
+
+Interpretation & region–regulator analysis
+------------------------------------------
+
+.. toctree::
+   :maxdepth: 1
+
+   commands/interpret_region_region_interactions
+   commands/interpret_regulator_regulator_interactions
+   commands/interpret_regulator_effects_between_region_groups
+
+Legacy / tutorial command names
+-------------------------------
+
+These pages describe workflows that may use **older example names** in notebooks; prefer the subcommand names in the sections above when calling ``chrombert-tools``.
 
 .. toctree::
    :maxdepth: 1
 
    commands/embed_gene
-   commands/embed_region
-   commands/embed_regulator
    commands/embed_cistrome
    commands/embed_cell_gene
    commands/embed_cell_region
    commands/embed_cell_regulator
    commands/embed_cell_cistrome
-
-Notebooks
-~~~~~~~~~
-
-.. toctree::
-   :maxdepth: 1
-
-   Extract general embeddings <examples/cli/embed>
-   Cell-type-specific Embedding <examples/cli/embed_cell_specific>
-
-
-Interpretation of regulation-informed embeddings
-------------------------------------------------
-
-Interpret regulation-informed embeddings:
-
-Commands
-~~~~~~~~~
-
-.. toctree::
-   :maxdepth: 1
-
    commands/infer_ep
    commands/infer_regulator_network
    commands/impute_cistrome
@@ -70,8 +78,17 @@ Commands
    commands/find_driver_in_transition
    commands/find_context_specific_cofactor
 
-Notebooks
-~~~~~~~~~
+Notebooks (CLI examples)
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+.. toctree::
+   :maxdepth: 1
+
+   Extract general embeddings <examples/cli/embed>
+   Cell-type-specific Embedding <examples/cli/embed_cell_specific>
+
+Interpretation & imputation (example notebooks)
+-----------------------------------------------
 
 .. toctree::
    :maxdepth: 1
