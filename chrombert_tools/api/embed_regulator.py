@@ -9,12 +9,10 @@ from __future__ import annotations
 
 import os
 from types import SimpleNamespace
-from typing import Dict, List, Optional, Tuple, Union
+from typing import List, Optional, Union
 
-import numpy as np
-import pandas as pd
-
-from ..cli.embed_regulator import run as _cli_run
+from ..cli.embed_regulator import run as _cli_run,is_cell_specific
+from ..cli.embed_run_result import ChrombertEmbedRegulatorRunResult
 
 
 def embed_regulator(
@@ -38,11 +36,7 @@ def embed_regulator(
     # ignore_regulator: Optional[str] = None,
     # gep: bool = False,
     # flank_window: int = 4,
-) -> Tuple[
-    Optional[Dict[str, np.ndarray]],
-    Optional[Dict[str, np.ndarray]],
-    Optional[pd.DataFrame],
-]:
+) -> ChrombertEmbedRegulatorRunResult:
     """
     Extract regulator embeddings for ChromBERT regulators on user regions that
     overlap the ChromBERT reference tiling (general pretrained or cell-specific model).
@@ -95,27 +89,14 @@ def embed_regulator(
             Optional override for the ChromBERT regulator list file resolved from
             the cache.
         return_embeddings:
-            If ``True``, return mean and per-region regulator arrays plus the overlap
-            table. If ``False``, only write files and return ``(None, None, None)``.
-        ignore_regulator:
-            Ignore regulator. Use ';' to separate multiple regulators.
-        gep:
-            Use GEP model (multi-flank-window).
-        flank_window:
-            Flank window size for gep model.
+            If ``True``, fill ``regulator_means``, ``regulator_emb_dict``, and
+            ``overlap_region_bed`` in the result. If ``False``, those fields are
+            ``None``; output file paths are still set.
 
     Returns:
-        Tuple ``(regulator_means, regulator_emb_dict, overlap_bed)`` when
-        ``return_embeddings`` is ``True``:
-
-        - **regulator_means**: Per-regulator mean embedding across all overlapping
-          regions (~768-d vectors), as a ``dict`` keyed by regulator name.
-        - **regulator_emb_dict**: Per-regulator stacked embeddings for each region
-          (concatenated along the region axis), as a ``dict`` keyed by name.
-        - **overlap_bed**: DataFrame of overlapping regions and indices used for the
-          forward pass (same rows as the dataloader order).
-
-        If ``return_embeddings`` is ``False``, returns ``(None, None, None)``.
+        :class:`~chrombert_tools.cli.embed_run_result.ChrombertEmbedRegulatorRunResult`.
+        Use :meth:`~chrombert_tools.cli.embed_run_result.ChrombertEmbedRegulatorRunResult.as_tuple`
+        for the legacy ``(regulator_means, regulator_emb_dict, overlap_bed)`` triple.
     """
     if isinstance(regulator, list):
         regulator_str = ";".join(regulator)
@@ -150,8 +131,21 @@ def embed_regulator(
     if chrombert_regulator_file is not None:
         args.chrombert_regulator_file = chrombert_regulator_file
 
+
+    cell_mode = is_cell_specific(args)
+
     out = _cli_run(args, return_data=return_embeddings)
-    if return_embeddings:
+    regulator_means = regulator_emb_dict = regions = None
+    if return_embeddings and out is not None:
         regulator_means, regulator_emb_dict, regions = out
-        return regulator_means, regulator_emb_dict, regions
-    return None, None, None
+
+
+    odir_abs = os.path.abspath(odir)
+    return ChrombertEmbedRegulatorRunResult(
+        regulator_means=regulator_means,
+        regulator_emb_dict=regulator_emb_dict,
+        overlap_region_bed=regions,
+        ft_ckpt=ft_ckpt,
+        train_output_dir=os.path.join(odir_abs, "train") if cell_mode else None,
+
+    )

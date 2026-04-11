@@ -13,6 +13,9 @@ from .interpret_regulator_regulator_interactions import interpret_regulator_regu
 from .interpret_regulator_effects_between_region_groups import (
     interpret_regulator_effects_between_region_groups,
 )
+from .region_function_classification import region_function_classification
+from .region_activity_regression import region_activity_regression
+from .gene_activity_repression import gene_activity_repression
 
 __all__ = [
     # "embed_gene",
@@ -24,5 +27,8 @@ __all__ = [
     "interpret_region_region_interactions",
     "interpret_regulator_regulator_interactions",
     "interpret_regulator_effects_between_region_groups",
+    "region_function_classification",
+    "region_activity_regression",
+    "gene_activity_repression",
 ]
 

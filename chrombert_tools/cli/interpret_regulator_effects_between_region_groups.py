@@ -101,13 +101,21 @@ def run(args, return_data=True):
               type=click.Path(file_okay=False), help="Output directory.")
 @click.option("--batch-size", "batch_size", default=4, show_default=True, type=int,
               help="Batch size.")
+@click.option("--model-config", "model_config",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              default=None,
+              help="Model configuration file.")
+@click.option("--data-config", "data_config",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              default=None,
+              help="Data configuration file.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
               default="~/.cache/chrombert/data",
               show_default=True, type=click.Path(file_okay=False),
               help="ChromBERT cache directory (contains config/ anno/ checkpoint/ etc).")
 
 
-def interpret_regulator_effects_between_region_groups(region1_file, region2_file, ft_ckpt, ignore_regulator, gep, flank_window, genome, resolution, odir, batch_size,
+def interpret_regulator_effects_between_region_groups(region1_file, region2_file, ft_ckpt, ignore_regulator, gep, flank_window, genome, resolution, odir, batch_size,model_config,data_config,
                    chrombert_cache_dir):
     '''
     Identify regulators that differ between two region sets via embedding shift.
@@ -124,6 +132,8 @@ def interpret_regulator_effects_between_region_groups(region1_file, region2_file
         odir=odir,
         batch_size=batch_size,
         chrombert_cache_dir=chrombert_cache_dir,
+        model_config=model_config,
+        data_config=data_config,
     )
     run(args, return_data=False)
 

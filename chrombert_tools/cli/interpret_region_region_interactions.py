@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pandas as pd
 import numpy as np
 from .embed_region import embed_region_processed
-from .utils import resolve_paths, check_files, check_region_file, chrom_to_int_series
+from .utils import resolve_paths, check_files, check_region_file, chrom_to_int_series, int_to_chrom_series
 from .utils_interpret import (
     build_interpret_config,
     load_interpret_model,
@@ -32,7 +32,7 @@ def get_union_embeddings(args, files_dict, sup_file, union_idx):
     oname = getattr(args, "oname", "region_emb")
     chrombert_region_emb_file = files_dict["region_emb_npy"]
     if args.ft_ckpt is None:
-        if chrombert_region_emb_file is not None:
+        if chrombert_region_emb_file is not None and os.path.exists(chrombert_region_emb_file):
             region_embs, _ = embed_region_processed(
                 emb_npy_file=chrombert_region_emb_file,
                 overlap_idx=union_idx,
@@ -100,10 +100,11 @@ def run(args, return_data=False):
         pairs_cos = cal_sim_tss_region_pairs(
             overlap_bed, gene_tss, union_idx, region_embs, window=window
         )
+        pairs_cos["chrom"] = int_to_chrom_series(pairs_cos["chrom"], args.genome)
         out_tsv = os.path.join(odir, "tss_region_pairs_cos.tsv")
         pairs_cos.to_csv(out_tsv, sep="\t", index=False)
         print("Finished!")
-        print(f"Enhancer–promoter style pairs saved to: {out_tsv}")
+        print(f"Enhancer-promoter style pairs saved to: {out_tsv}")
         if return_data:
             return pairs_cos
         return None
@@ -152,6 +153,10 @@ def run(args, return_data=False):
         region_embs,
         max_genomic_dist_bp=window,
     )
+    # print(pairs_cos)
+    pairs_cos["set1_chrom"] = int_to_chrom_series(pairs_cos["set1_chrom"], args.genome)
+    pairs_cos["set2_chrom"] = int_to_chrom_series(pairs_cos["set2_chrom"], args.genome)
+
     out_tsv = os.path.join(odir, "region_set_pairs_cos.tsv")
     pairs_cos.to_csv(out_tsv, sep="\t", index=False)
     print("Finished!")
@@ -226,6 +231,18 @@ def run(args, return_data=False):
               required=False, default=4, show_default=True,
               help="Flank window size for gep model.")
 @click.option(
+    "--model-config",
+    "model_config",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+)
+@click.option(
+    "--data-config",
+    "data_config",
+    default=None,
+    type=click.Path(exists=True, dir_okay=False, readable=True),
+)
+@click.option(
     "--chrombert-cache-dir",
     "chrombert_cache_dir",
     default="~/.cache/chrombert/data",
@@ -260,8 +277,10 @@ def interpret_region_region_interactions(
     gep,
     flank_window,
     distance_window,
+    model_config,
+    data_config,
 ):
-    """Region embedding similarities: enhancer–promoter (one BED) or two BEDs within --distance-window."""
+    """Region embedding similarities: enhancer-promoter (one BED) or two BEDs within --distance-window."""
     args = SimpleNamespace(
         region=region,
         region2=region2,
@@ -277,6 +296,8 @@ def interpret_region_region_interactions(
         gep=gep,
         flank_window=flank_window,
         distance_window=distance_window,
+        model_config=model_config,
+        data_config=data_config,
     )
     run(args)
 

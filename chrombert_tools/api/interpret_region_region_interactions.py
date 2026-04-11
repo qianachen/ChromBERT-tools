@@ -32,6 +32,8 @@ def interpret_region_region_interactions(
     gep: bool = False,
     flank_window: int = 4,
     chrombert_gene_meta: Optional[str] = None,
+    model_config: Optional[str] = None,
+    data_config: Optional[str] = None,
 ) -> Optional[pd.DataFrame]:
     """
     Compute cosine similarities between region embeddings: either enhancer-promoter
@@ -99,6 +101,8 @@ def interpret_region_region_interactions(
         gep=gep,
         flank_window=flank_window,
         distance_window=distance_window,
+        model_config=model_config,
+        data_config=data_config,
     )
     if chrombert_gene_meta is not None:
         args.chrombert_gene_meta = chrombert_gene_meta

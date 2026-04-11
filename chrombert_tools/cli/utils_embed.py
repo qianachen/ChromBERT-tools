@@ -164,7 +164,7 @@ def build_cell_model_emb(args, files_dict,odir):
     '''
     Build cell-specific model and embedding manager
     '''
-    
+    sup_file = None
     if args.cell_type_peak is not None and args.cell_type_bw is not None:
         d_odir = f"{odir}/dataset"
         os.makedirs(d_odir, exist_ok=True)
@@ -324,3 +324,21 @@ def generate_regulator_embeddings_only_mean(
     with open(out_pkl, "wb") as f:
         pickle.dump(embs_pool_dict, f)
     return embs_pool, regulators
+
+
+def umap_plot(emb, anno, odir):
+    '''
+    Plot UMAP plot
+    '''
+    import umap
+    import pandas as pd
+    import seaborn as sns
+    import matplotlib.pyplot as plt
+    X_umap = umap.UMAP(random_state=42,n_components=2).fit_transform(emb)
+    umap_df = pd.DataFrame(X_umap, columns=["UMAP1", "UMAP2"])
+    umap_df["anno"] = anno
+    umap_df.to_csv(f"{odir}/umap_df.csv", index=False)
+    import seaborn as sns
+    fig, ax = plt.subplots(figsize=(3, 3), dpi=300)
+    sns.scatterplot(x='UMAP1', y='UMAP2', hue='anno', data=umap_df, s=5, alpha=0.5,ax=ax)
+    ax.legend(loc="best", bbox_to_anchor=(1.05, 1), fontsize=12, markerscale=4)

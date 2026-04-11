@@ -191,6 +191,14 @@ def run(args, return_data=False):
               help="Quantile threshold for cosine similarity edges.")
 @click.option("--k-hop", default=1, show_default=True, type=int,
               help="k-hop radius for subnetwork plotting.")
+@click.option("--model-config", "model_config",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              default=None,
+              help="Model configuration file.")
+@click.option("--data-config", "data_config",
+              type=click.Path(exists=True, dir_okay=False, readable=True),
+              default=None,
+              help="Data configuration file.")
 
 def interpret_regulator_regulator_interactions(
     region,
@@ -206,6 +214,8 @@ def interpret_regulator_regulator_interactions(
     ignore_regulator,
     gep,
     flank_window,
+    model_config,
+    data_config,
 ):
     '''
     Interpret regulator-regulator interactions
@@ -224,6 +234,8 @@ def interpret_regulator_regulator_interactions(
         ignore_regulator=ignore_regulator,
         gep=gep,
         flank_window=flank_window,
+        model_config=model_config,
+        data_config=data_config,
     )
     run(args)
 

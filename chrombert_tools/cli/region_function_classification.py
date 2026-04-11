@@ -1,7 +1,5 @@
 import os
-import pickle
-import itertools
-from collections import defaultdict
+import json
 
 import click
 from types import SimpleNamespace
@@ -9,19 +7,15 @@ from types import SimpleNamespace
 import numpy as np
 import pandas as pd
 import torch
-import networkx as nx
-import nxviz as nv
-from nxviz import annotate
-import matplotlib.pyplot as plt
 from tqdm import tqdm
-from sklearn.metrics.pairwise import cosine_similarity
 
-from chrombert_hf import ChromBERTFTConfig, DatasetConfig, ChromBERTConfig
+from chrombert_hf import ChromBERTFTConfig, DatasetConfig
 
-from .utils import resolve_paths, check_files, overlap_regulator_func, overlap_region
-from .utils import split_data, cal_metrics_binary, cal_metrics_multiclass, get_model_name,check_region_file
+from .utils import resolve_paths, check_files, overlap_regulator_func
+from .utils import cal_metrics_binary, cal_metrics_multiclass, get_model_name, check_region_file
 from .utils_train_cell import retry_train
 from .utils_classfication import validate_args, prepare_dataset
+from .prediction_run_result import ChrombertPredictionRunResult
 
 
 # =========================
@@ -121,19 +115,20 @@ def predict(args, model_tuned, data_config, files_dict,d_odir):
     predict_odir = os.path.join(args.odir, "predict")
     os.makedirs(predict_odir, exist_ok=True)
 
-    predict_file = _resolve_predict_file(args, d_odir)
-    check_region_file(predict_file,files_dict,predict_odir)
-    predict_file = os.path.join(predict_odir, "model_input.tsv")
-    print(f"  Predict input: {predict_file}")
+    src_predict = _resolve_predict_file(args, d_odir)
+    src_predict = os.path.abspath(src_predict)
+    check_region_file(src_predict, files_dict, predict_odir)
+    model_input = os.path.join(predict_odir, "model_input.tsv")
+    print(f"  Predict input: {model_input}")
 
-    
-    data_config.supervised_file = predict_file
+    data_config.supervised_file = model_input
     dl = data_config.init_dataloader(batch_size=args.batch_size)
-    meta_df = pd.read_csv(predict_file,sep="\t")
+    meta_df = pd.read_csv(model_input, sep="\t")
 
     model_tuned = model_tuned.eval()
     all_logits = []
     all_labels = []
+    has_labels = False
 
     with torch.no_grad():
         for batch in tqdm(dl, desc="Predicting"):
@@ -143,19 +138,19 @@ def predict(args, model_tuned, data_config, files_dict,d_odir):
             logits = model_tuned(batch).cpu()
             all_logits.append(logits)
             if "label" in batch:
+                has_labels = True
                 all_labels.append(batch["label"].cpu())
-                all_label_state = True
-            else:
-                all_label_state = False
 
     all_logits = torch.cat(all_logits, dim=0)
-    all_labels = torch.cat(all_labels, dim=0).reshape(-1) if all_label_state else None
+    all_labels_cat = (
+        torch.cat(all_labels, dim=0).reshape(-1) if has_labels and all_labels else None
+    )
 
     # Build result DataFrame starting from region metadata
     region_cols = [c for c in ["chrom", "start", "end", "build_region_index"] if c in meta_df.columns]
     result = meta_df[region_cols].copy()
-    if all_label_state:
-        result["true_label"] = all_labels.numpy() 
+    if all_labels_cat is not None:
+        result["true_label"] = all_labels_cat.numpy() 
 
     if n_classes > 2:
         # multiclass: softmax → per-class probabilities
@@ -173,11 +168,16 @@ def predict(args, model_tuned, data_config, files_dict,d_odir):
         {i: n for i, n in enumerate(names)}
     )
 
-    out_path = os.path.join(predict_odir, "predictions.csv")
+    out_path = os.path.abspath(os.path.join(predict_odir, "predictions.csv"))
     result.to_csv(out_path, index=False)
     print(f"  Predictions saved: {out_path}  ({len(result)} regions)")
 
-    return result
+    return {
+        "predictions_df": result,
+        # "predictions_path": out_path,
+        # "model_input_path": os.path.abspath(model_input),
+        # "source_predict_path": src_predict,
+    }
 
 
 # =========================
@@ -318,10 +318,46 @@ def run(args):
 
     # Stage 3: Predict
     print("Stage 3: Predicting")
-    predict(args, model_tuned, data_config, files_dict, d_odir)
+    pred = predict(args, model_tuned, data_config, files_dict, d_odir)
     print("Finished stage 3")
 
     report(args, train_odir)
+
+    if predict_only:
+        print(f"Fine-tuned checkpoint used: {args.ft_ckpt}")
+        model_ckpt = args.ft_ckpt
+    elif args.ft_ckpt:
+        print(f"Fine-tuned checkpoint used: {args.ft_ckpt}")
+        model_ckpt = args.ft_ckpt
+    elif train_odir is not None:
+        # eval_performance.json is under train/try_XX_seed_YY/, not train/ root
+        # (see utils_train_cell.model_eval).
+        eval_json = os.path.join(train_odir, "eval_performance.json")
+        with open(eval_json) as f:
+            eval_performance = json.load(f)
+        model_ckpt = eval_performance["ft_ckpt"]
+        print(f"Fine-tuned checkpoint: {model_ckpt}")
+    else:
+        model_ckpt = None
+
+    model_config_path = os.path.join(odir, "model_config.json")
+    with open(model_config_path, "w") as f:
+        json.dump(model_tuned.finetune_config.to_dict(), f)
+    
+    dataset_config_path = os.path.join(odir, "dataset_config.json")
+    data_config.save(dataset_config_path)
+
+    print(f"Predictions: {odir}/predict/predictions.csv")
+
+    train_out = None if predict_only else os.path.join(odir, "train")
+    return ChrombertPredictionRunResult(
+        model=model_tuned,
+        model_ckpt=model_ckpt,
+        model_config=model_config_path,
+        data_config=dataset_config_path,
+        predictions_df=pred["predictions_df"],
+        train_output_dir=os.path.abspath(train_out) if train_out else None,
+    )
 
 # =========================
 # CLI

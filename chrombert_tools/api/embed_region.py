@@ -6,11 +6,12 @@ from __future__ import annotations
 
 import os
 from types import SimpleNamespace
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 
 import numpy as np
 import pandas as pd
 
+from ..cli.embed_run_result import ChrombertEmbedRunResult
 from ..cli.utils import check_files, resolve_paths
 from ..cli.utils_embed import build_cell_model_emb, is_cell_specific
 from ..cli.embed_region import (
@@ -43,13 +44,9 @@ def embed_region(
     # ignore_regulator: Optional[str] = None,
     # gep: bool = False,
     # flank_window: int = 4,
-) -> Tuple[
-    Optional[np.ndarray],
-    Optional[pd.DataFrame],
-    Optional[Dict[str, np.ndarray]],
-]:
+) -> ChrombertEmbedRunResult:
     """
-    Compute ChromBERT region embeddings for user regions and/or genes (), using either
+    Compute ChromBERT region embeddings for user regions and/or genes (promoter region), using either
     the general pretrained model or a cell-specific model.
 
     Args:
@@ -106,21 +103,15 @@ def embed_region(
             Peak BED for the same cell type as ``cell_type_bw``; must be used as a
             pair when not using ``ft_ckpt``.
         return_embeddings:
-            If ``True``, return in-memory arrays/dicts in addition to writing files.
-            If ``False``, only write outputs; all three return values are ``None``.
+            If ``True``, fill in-memory fields in the result in addition to writing files.
+            If ``False``, only write outputs; embedding fields in the result are ``None``
+            (paths are still populated for outputs that ran).
 
     Returns:
-        Tuple ``(region_emb, overlap_region_bed, gene_emb_dict)``:
-
-        - **region_emb**: Matrix of embeddings for overlapping ChromBERT bins, shape
-          about ``(n_overlap, 768)``. ``None`` if ``region`` was not requested or
-          ``return_embeddings`` is ``False``.
-        - **overlap_region_bed**: DataFrame of overlapping intervals with
-          ``build_region_index`` and related columns. ``None`` if ``region`` was not
-          requested or ``return_embeddings`` is ``False``.
-        - **gene_emb_dict**: Mapping from lowercased gene keys to 1D vectors (~768),
-          mean-pooled over bins. ``None`` if ``gene`` was not requested or
-          ``return_embeddings`` is ``False``.
+        :class:`~chrombert_tools.cli.embed_run_result.ChrombertEmbedRunResult` with
+        ``region_emb``, ``overlap_region_bed``, ``gene_emb_dict``, and absolute paths
+        to ``region_emb_{oname}.npy``, ``gene_emb_{oname}.pkl``, and model_input TSVs.
+        For the legacy triple, use :meth:`ChrombertEmbedRunResult.as_tuple`.
     """
     if chrombert_cache_dir is None:
         chrombert_cache_dir = os.path.expanduser("~/.cache/chrombert/data")
@@ -198,4 +189,24 @@ def embed_region(
             if return_embeddings and gout is not None:
                 gene_emb_dict = gout
 
-    return region_emb, region_bed, gene_emb_dict
+    odir_abs = os.path.abspath(odir)
+    region_emb_path = (
+        os.path.join(odir_abs, f"region_emb_{oname}.npy") if region is not None else None
+    )
+    gene_emb_path = (
+        os.path.join(odir_abs, f"gene_emb_{oname}.pkl") if gene is not None else None
+    )
+    region_model_input_path = (
+        os.path.join(odir_abs, "model_input.tsv") if region is not None else None
+    )
+    gene_model_input_path = (
+        os.path.join(odir_abs, "model_input_gene.tsv") if gene is not None else None
+    )
+
+    return ChrombertEmbedRunResult(
+        region_emb=region_emb,
+        overlap_region_bed=region_bed,
+        gene_emb_dict=gene_emb_dict,
+        ft_ckpt=ft_ckpt,
+        train_output_dir=os.path.join(odir_abs, "train") if cell_mode else None,
+    )

@@ -92,7 +92,7 @@ def run_region_general(args, files_dict, odir, return_data=False,model_emb=None)
 
     emb_npy_path = files_dict["region_emb_npy"]
 
-    if os.path.exists(emb_npy_path) and getattr(args, "ignore_regulator", None) is None:
+    if emb_npy_path is not None and os.path.exists(emb_npy_path) and getattr(args, "ignore_regulator", None) is None:
         print("Using cached region embeddings...")
         all_emb = np.load(emb_npy_path)
         region_embs = all_emb[overlap_idx]
@@ -211,7 +211,7 @@ def run_gene_general(args, files_dict, odir, return_data=False,model_emb=None):
 
     emb_npy_path = files_dict["region_emb_npy"]
 
-    if os.path.exists(emb_npy_path) and getattr(args, "ignore_regulator", None) is None:
+    if emb_npy_path is not None and os.path.exists(emb_npy_path) and getattr(args, "ignore_regulator", None) is None:
         print("Using cached region embeddings for gene pooling...")
         all_emb = np.load(emb_npy_path)
         gene_emb_dict = {}

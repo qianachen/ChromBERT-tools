@@ -12,7 +12,7 @@ import numpy as np
 import pandas as pd
 import torch
 from tqdm import tqdm
-
+import json
 from chrombert_hf import ChromBERTFTConfig, DatasetConfig
 
 from .utils import get_model_name, overlap_regulator_func
@@ -52,68 +52,76 @@ def build_interpret_config(
 
     supervised_file_for_ignore_idx: TSV used only to init_dataset when computing ignore_index.
     """
-    ignore_regulator = getattr(args, "ignore_regulator", ignore_regulator)
-    ignore, ignore_object = resolve_ignore_object(
-        ignore_regulator,
-        files_dict["chrombert_regulator_file"],
-    )
-    ignore_index = None
-    gep = getattr(args, "gep", gep)
-    flank_window = getattr(args, "flank_window", flank_window)
-    if not gep:
-        data_config = DatasetConfig(
-            kind="GeneralDataset",
-            supervised_file=None,
-            hdf5_file=files_dict["hdf5_file"],
-            batch_size=args.batch_size,
-            num_workers=8,
-            meta_file=files_dict["meta_file"],
-        )
-        if ignore:
-            data_config.ignore = ignore
-            data_config.ignore_object = ignore_object
-            ds0 = data_config.init_dataset(supervised_file=supervised_file_for_ignore_idx)
-            ignore_index = ds0[0]["ignore_index"]
-
-        model_config = ChromBERTFTConfig(
-            genome=args.genome,
-            task="general",
-            dropout=0,
-            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
-            pretrain_ckpt=files_dict["pretrain_ckpt"],
-            mtx_mask=files_dict["mtx_mask"],
-            finetune_ckpt=args.ft_ckpt,
-            ignore=ignore,
-            ignore_index=ignore_index,
-        )
+    if args.model_config is not None and args.data_config is not None:
+        with open(args.model_config, "r") as f:
+            model_config_dict = json.load(f)
+        with open(args.data_config, "r") as f:
+            data_config_dict = json.load(f)
+        model_config = ChromBERTFTConfig(**model_config_dict)
+        data_config = DatasetConfig(**data_config_dict)
     else:
-        data_config = DatasetConfig(
-            kind="MultiFlankwindowDataset",
-            supervised_file=None,
-            hdf5_file=files_dict["hdf5_file"],
-            batch_size=args.batch_size,
-            num_workers=2,
-            meta_file=files_dict["meta_file"],
-            flank_window=flank_window,
+        ignore_regulator = getattr(args, "ignore_regulator", ignore_regulator)
+        ignore, ignore_object = resolve_ignore_object(
+            ignore_regulator,
+            files_dict["chrombert_regulator_file"],
         )
-        if ignore:
-            data_config.ignore = ignore
-            data_config.ignore_object = ignore_object
-            ds0 = data_config.init_dataset(supervised_file=supervised_file_for_ignore_idx)
-            ignore_index = ds0[0]["ignore_index"]
+        ignore_index = None
+        gep = getattr(args, "gep", gep)
+        flank_window = getattr(args, "flank_window", flank_window)
+        if not gep:
+            data_config = DatasetConfig(
+                kind="GeneralDataset",
+                supervised_file=None,
+                hdf5_file=files_dict["hdf5_file"],
+                batch_size=args.batch_size,
+                num_workers=8,
+                meta_file=files_dict["meta_file"],
+            )
+            if ignore:
+                data_config.ignore = ignore
+                data_config.ignore_object = ignore_object
+                ds0 = data_config.init_dataset(supervised_file=supervised_file_for_ignore_idx)
+                ignore_index = ds0[0]["ignore_index"]
 
-        model_config = ChromBERTFTConfig(
-            genome=args.genome,
-            task="gep",
-            dropout=0,
-            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
-            pretrain_ckpt=files_dict["pretrain_ckpt"],
-            mtx_mask=files_dict["mtx_mask"],
-            finetune_ckpt=args.ft_ckpt,
-            gep_flank_window=flank_window,
-            ignore=ignore,
-            ignore_index=ignore_index,
-        )
+            model_config = ChromBERTFTConfig(
+                genome=args.genome,
+                task="general",
+                dropout=0,
+                pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+                pretrain_ckpt=files_dict["pretrain_ckpt"],
+                mtx_mask=files_dict["mtx_mask"],
+                finetune_ckpt=args.ft_ckpt,
+                ignore=ignore,
+                ignore_index=ignore_index,
+            )
+        else:
+            data_config = DatasetConfig(
+                kind="MultiFlankwindowDataset",
+                supervised_file=None,
+                hdf5_file=files_dict["hdf5_file"],
+                batch_size=args.batch_size,
+                num_workers=2,
+                meta_file=files_dict["meta_file"],
+                flank_window=flank_window,
+            )
+            if ignore:
+                data_config.ignore = ignore
+                data_config.ignore_object = ignore_object
+                ds0 = data_config.init_dataset(supervised_file=supervised_file_for_ignore_idx)
+                ignore_index = ds0[0]["ignore_index"]
+
+            model_config = ChromBERTFTConfig(
+                genome=args.genome,
+                task="gep",
+                dropout=0,
+                pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+                pretrain_ckpt=files_dict["pretrain_ckpt"],
+                mtx_mask=files_dict["mtx_mask"],
+                finetune_ckpt=args.ft_ckpt,
+                gep_flank_window=flank_window,
+                ignore=ignore,
+                ignore_index=ignore_index,
+            )
 
     return data_config, model_config
 

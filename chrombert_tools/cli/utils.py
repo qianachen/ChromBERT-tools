@@ -12,7 +12,7 @@ import random
 import h5py
 from chrombert_hf.download_data import download
 from sklearn.metrics.pairwise import cosine_similarity
-
+from types import SimpleNamespace
 def _nd_from_genome(genome: str) -> str:
     genome = genome.lower()
     if genome == "hg38":
@@ -20,6 +20,15 @@ def _nd_from_genome(genome: str) -> str:
     elif genome == "mm10":
         return "5k"
     raise ValueError(f"Genome {genome} not supported!")
+
+
+def _path_if_exists(p):
+    """Return expanded, normalized path if it exists on disk; otherwise None."""
+    if p is None or p == "":
+        return None
+    p = os.path.expanduser(os.path.normpath(str(p)))
+    return p if os.path.exists(p) else None
+
 
 def get_model_name(genome: str, resolution: str) -> str:
     if genome == "hg38":
@@ -46,13 +55,26 @@ def get_tf_bind_model_name(genome: str, resolution: str) -> str:
     else:
         raise ValueError(f"Genome {genome} not supported.")
 
-def resolve_paths(args):
+def resolve_paths(args = None,genome: str = None, resolution: str = None, chrombert_cache_dir: str = None):
     """
     Resolve all required ChromBERT files based on:
       - genome: hg38/mm10
       - resolution: 1kb/200bp/2kb/4kb
-      - optional overrides: --chrombert-xxx-file
+      - chrombert_cache_dir: chrombert cache directory, including config, anno, checkpoint, etc by download_data.py. 
     """
+    if args is None:
+        if genome is None or resolution is None:
+            raise ValueError("genome and resolution are required if args is not provided.")
+        else:
+            args = SimpleNamespace(genome=genome, resolution=resolution, chrombert_cache_dir=chrombert_cache_dir)
+    else:
+        if genome is not None:
+            args.genome = genome
+        if resolution is not None:
+            args.resolution = resolution
+        if chrombert_cache_dir is not None:
+            args.chrombert_cache_dir = chrombert_cache_dir
+
     n_d = _nd_from_genome(args.genome)
     cache_path = os.path.expanduser(args.chrombert_cache_dir)
     if not os.path.exists(cache_path):
@@ -95,28 +117,47 @@ def resolve_paths(args):
         # prompt ckpt
         prompt_ckpt = os.path.join(cache_path, "checkpoint", f"{args.genome}_{n_d}_{args.resolution}_prompt_cistrome.ckpt")
         
-        # Override with user-provided paths if available
-        chrombert_region_file = getattr(args, "chrombert_region_file", None) or chrombert_region_file
-        chrombert_regulator_file = getattr(args, "chrombert_regulator_file", None) or chrombert_regulator_file
-        chrombert_factor_file = getattr(args, "chrombert_factor_file", None) or chrombert_factor_file
-        hdf5_file = getattr(args, "hdf5_file", None) or hdf5_file
-        pretrain_ckpt = getattr(args, "pretrain_ckpt", None) or pretrain_ckpt
-        mtx_mask = getattr(args, "mtx_mask", None) or mtx_mask
-        region_emb_file = getattr(args, "chrombert_region_emb_file", None) or region_emb_file
-        gene_meta_tsv = getattr(args, "chrombert_gene_meta", None) or gene_meta_tsv
-        base_ca_signal = getattr(args, "base_ca_signal", None) or base_ca_signal
-        meta_file = getattr(args, "meta_file", None) or meta_file
-        data_dict = {"chrombert_region_file": chrombert_region_file,
-                    "chrombert_regulator_file": chrombert_regulator_file,
-                    "chrombert_factor_file": chrombert_factor_file,
-                    "hdf5_file": hdf5_file,
-                    "pretrain_ckpt": pretrain_ckpt,
-                    "mtx_mask": mtx_mask,
-                    "region_emb_npy": region_emb_file,
-                    "gene_meta_tsv": gene_meta_tsv,
-                    "base_ca_signal": base_ca_signal,
-                    "meta_file": meta_file,
-                    "prompt_ckpt": prompt_ckpt}
+        # Override with user-provided paths if available; drop paths missing on disk
+        chrombert_region_file = _path_if_exists(
+            getattr(args, "chrombert_region_file", None) or chrombert_region_file
+        )
+        chrombert_regulator_file = _path_if_exists(
+            getattr(args, "chrombert_regulator_file", None) or chrombert_regulator_file
+        )
+        chrombert_factor_file = _path_if_exists(
+            getattr(args, "chrombert_factor_file", None) or chrombert_factor_file
+        )
+        hdf5_file = _path_if_exists(getattr(args, "hdf5_file", None) or hdf5_file)
+        pretrain_ckpt = _path_if_exists(
+            getattr(args, "pretrain_ckpt", None) or pretrain_ckpt
+        )
+        mtx_mask = _path_if_exists(getattr(args, "mtx_mask", None) or mtx_mask)
+        region_emb_file = _path_if_exists(
+            getattr(args, "chrombert_region_emb_file", None) or region_emb_file
+        )
+        gene_meta_tsv = _path_if_exists(
+            getattr(args, "chrombert_gene_meta", None) or gene_meta_tsv
+        )
+        base_ca_signal = _path_if_exists(
+            getattr(args, "base_ca_signal", None) or base_ca_signal
+        )
+        meta_file = _path_if_exists(getattr(args, "meta_file", None) or meta_file)
+        prompt_ckpt = _path_if_exists(
+            getattr(args, "prompt_ckpt", None) or prompt_ckpt
+        )
+        data_dict = {
+            "chrombert_region_file": chrombert_region_file,
+            "chrombert_regulator_file": chrombert_regulator_file,
+            "chrombert_factor_file": chrombert_factor_file,
+            "hdf5_file": hdf5_file,
+            "pretrain_ckpt": pretrain_ckpt,
+            "mtx_mask": mtx_mask,
+            "region_emb_npy": region_emb_file,
+            "gene_meta_tsv": gene_meta_tsv,
+            "base_ca_signal": base_ca_signal,
+            "meta_file": meta_file,
+            "prompt_ckpt": prompt_ckpt,
+        }
     return data_dict
     
     
@@ -205,17 +246,17 @@ def check_region_file(focus_region,files_dict,odir):
             raise ValueError(
                 f"Missing columns in CSV/TSV: {missing}. Required columns: {required}."
             )
-        if "build_region_index" in df.columns:
-            if "start_input" in df.columns and "end_input" in df.columns:
-                overlap_bed = df[required + ['build_region_index', 'start_input', 'end_input']].copy()
-            else:
-                overlap_bed = df[required + ['build_region_index']].copy()
-                overlap_bed['start_input'] = overlap_bed['start']
-                overlap_bed['end_input'] = overlap_bed['end']
-            if "label" in df.columns:
-                overlap_bed["label"] = df["label"]
-                overlap_bed = overlap_bed[required + ["build_region_index", "label", "start_input", "end_input"]]
-            overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
+        # if "build_region_index" in df.columns: # Possible cause: the region file was built at 1 kb resolution, but the current run uses 200 bp or another resolution. so delete this part
+        #     if "start_input" in df.columns and "end_input" in df.columns:
+        #         overlap_bed = df[required + ['build_region_index', 'start_input', 'end_input']].copy()
+        #     else:
+        #         overlap_bed = df[required + ['build_region_index']].copy()
+        #         overlap_bed['start_input'] = overlap_bed['start']
+        #         overlap_bed['end_input'] = overlap_bed['end']
+        #     if "label" in df.columns:
+        #         overlap_bed["label"] = df["label"]
+        #         overlap_bed = overlap_bed[required + ["build_region_index", "label", "start_input", "end_input"]]
+        #     overlap_bed.to_csv(f"{odir}/model_input.tsv", sep="\t", index=False)
         else:
             # write a temp BED and reuse overlap_region
             tmp_bed = f"{odir}/tmp_focus_regions.bed"
@@ -395,6 +436,37 @@ def chrom_to_int_series(chrom_series: pd.Series, genome: str) -> pd.Series:
 
     return chrom_series.map(_map_one)
 
+def int_to_chrom_series(chrom_int_series: pd.Series, genome: str) -> pd.Series:
+    """
+    Inverse of :func:`chrom_to_int_series`.
+    hg38: 1-22 -> chr1-chr22, 23 -> chrX, 24 -> chrY;
+    mm10: 1-19 -> chr1-chr19, 20 -> chrX, 21 -> chrY.
+    Unknown / out-of-range / non-integer values become NaN.
+    """
+    genome = genome.lower()
+    if genome == "hg38":
+        x_id, y_id, max_auto = 23, 24, 22
+    elif genome == "mm10":
+        x_id, y_id, max_auto = 20, 21, 19
+    else:
+        raise ValueError(f"Genome {genome} not supported for chrom mapping")
+
+    def _unmap_one(v):
+        if pd.isna(v):
+            return np.nan
+        try:
+            i = int(v)
+        except (TypeError, ValueError):
+            return np.nan
+        if i == x_id:
+            return "chrX"
+        if i == y_id:
+            return "chrY"
+        if 1 <= i <= max_auto:
+            return f"chr{i}"
+        return np.nan
+
+    return chrom_int_series.map(_unmap_one)
 
 def bw_getSignal_bins(bw, regions: pd.DataFrame,scale:bool=False,name:str="signal"):
     regions = regions.copy()

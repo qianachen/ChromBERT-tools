@@ -17,6 +17,7 @@ from .utils import split_data, bw_getSignal_bins
 from .utils import cal_metrics_regression
 from .utils import factor_rank, overlap_region, get_model_name
 from .utils_train_cell import retry_train
+from .prediction_run_result import ChrombertPredictionRunResult
 
 
 def _semicolon_paths(s):
@@ -228,6 +229,12 @@ def prepare_dataset(args, files_dict, data_odir):
     return args
 
 def load_train_model_acc(args, files_dict, odir):
+    """
+    Returns:
+        ``(model_tuned, data_config, train_try_odir)``.
+        ``train_try_odir`` is ``.../train/try_XX_seed_YY`` (where
+        ``eval_performance.json`` lives), or ``None`` if loading from ``ft_ckpt``.
+    """
     if args.ft_ckpt is not None:
         print(f"Using fine-tuned checkpoint: {args.ft_ckpt}")
         data_config = DatasetConfig(
@@ -249,20 +256,20 @@ def load_train_model_acc(args, files_dict, odir):
         )
         model_tuned = model_config.init_model().cuda()
         print("Finished stage 2 (loaded checkpoint)")
-    else:
-        model_tuned, train_try_odir, _, data_config = retry_train(
-            args,
-            files_dict,
-            cal_metrics_regression,
-            metcic="pearsonr",
-            min_threshold=0.2,
-            train_kind="regression",
-            task="general",
-            odir=odir,
-        )
-        train_odir = train_try_odir
-        print("Finished stage 2 (trained)")
-    return model_tuned, data_config
+        return model_tuned, data_config, None
+
+    model_tuned, train_try_odir, _, data_config = retry_train(
+        args,
+        files_dict,
+        cal_metrics_regression,
+        metcic="pearsonr",
+        min_threshold=0.2,
+        train_kind="regression",
+        task="general",
+        odir=odir,
+    )
+    print("Finished stage 2 (trained)")
+    return model_tuned, data_config, train_try_odir
 
 # =========================
 # prediction (regression)
@@ -288,8 +295,8 @@ def predict(args, model_tuned, data_config, files_dict, d_odir):
     predict_odir = os.path.join(args.odir, "predict")
     os.makedirs(predict_odir, exist_ok=True)
 
-    src = _resolve_predict_file(args, d_odir)
-    check_region_file(src, files_dict, predict_odir)
+    src_predict = os.path.abspath(_resolve_predict_file(args, d_odir))
+    check_region_file(src_predict, files_dict, predict_odir)
     model_input = os.path.join(predict_odir, "model_input.tsv")
     print(f"  Predict input: {model_input}")
 
@@ -329,10 +336,15 @@ def predict(args, model_tuned, data_config, files_dict, d_odir):
     if all_labels:
         result["true_label"] = torch.cat(all_labels, dim=0).numpy()
 
-    out_path = os.path.join(predict_odir, "predictions.csv")
+    out_path = os.path.abspath(os.path.join(predict_odir, "predictions.csv"))
     result.to_csv(out_path, index=False)
     print(f"  Predictions saved: {out_path}  ({len(result)} regions)")
-    return result
+    return {
+        "predictions_df": result,
+        # "predictions_path": out_path,
+        # "model_input_path": os.path.abspath(model_input),
+        # "source_predict_path": src_predict,
+    }
 
 
 def _is_predict_only(args):
@@ -392,7 +404,7 @@ def run(args):
     check_files(files_dict, required_keys=required_keys)
 
     data_odir = os.path.join(odir, "dataset")
-    train_odir = None
+    train_try_odir = None
 
     if predict_only:
         print("Predict-only mode (--ft-ckpt + --predict-file)")
@@ -415,10 +427,12 @@ def run(args):
         else:
             print("Stage 2: train ChromBERT (state-1 accessibility as log2 signal)")
             
-        model_tuned, data_config = load_train_model_acc(args, files_dict, odir)
+        model_tuned, data_config, train_try_odir = load_train_model_acc(
+            args, files_dict, odir
+        )
 
     print("Stage 3: Predicting")
-    predict(args, model_tuned, data_config, files_dict, data_odir)
+    pred = predict(args, model_tuned, data_config, files_dict, data_odir)
     print("Finished stage 3")
 
     print("\n" + "=" * 60)
@@ -426,11 +440,39 @@ def run(args):
     print("=" * 60)
     if predict_only:
         print(f"Fine-tuned checkpoint used: {args.ft_ckpt}")
+        model_ckpt = args.ft_ckpt
     elif args.ft_ckpt:
         print(f"Fine-tuned checkpoint used: {args.ft_ckpt}")
-    elif train_odir is not None:
-        print(f"Fine-tuned model saved under: {odir}/train/")
+        model_ckpt = args.ft_ckpt
+    elif train_try_odir is not None:
+        # eval_performance.json is under train/try_XX_seed_YY/, not train/ root
+        # (see utils_train_cell.model_eval).
+        eval_json = os.path.join(train_try_odir, "eval_performance.json")
+        with open(eval_json) as f:
+            eval_performance = json.load(f)
+        model_ckpt = eval_performance["ft_ckpt"]
+        print(f"Fine-tuned checkpoint: {model_ckpt}")
+    else:
+        model_ckpt = None
+
+    model_config_path = os.path.join(odir, "model_config.json")
+    with open(model_config_path, "w") as f:
+        json.dump(model_tuned.finetune_config.to_dict(), f)
+    
+    dataset_config_path = os.path.join(odir, "dataset_config.json")
+    data_config.save(dataset_config_path)
+
     print(f"Predictions: {odir}/predict/predictions.csv")
+
+    train_out = None if predict_only else os.path.join(odir, "train")
+    return ChrombertPredictionRunResult(
+        model=model_tuned,
+        model_ckpt=model_ckpt,
+        model_config=model_config_path,
+        data_config=dataset_config_path,
+        predictions_df=pred["predictions_df"],
+        train_output_dir=os.path.abspath(train_out) if train_out else None,
+    )
 
 
 @click.command(

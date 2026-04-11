@@ -44,7 +44,8 @@ def cli(verbose, debug):
         sys.excepthook = _excepthook
         
 # from .utils import make_dataset
-from .utils import check_region_file
+from .utils import check_region_file, resolve_paths
+from .utils_embed import umap_plot
 
 from . import (
     embed_region,

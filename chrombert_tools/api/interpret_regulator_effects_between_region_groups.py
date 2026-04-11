@@ -31,6 +31,8 @@ def interpret_regulator_effects_between_region_groups(
     chrombert_region_file: Optional[str] = None,
     chrombert_regulator_file: Optional[str] = None,
     return_results: bool = True,
+    model_config: Optional[str] = None,
+    data_config: Optional[str] = None,
 ) -> Optional[pd.DataFrame]:
     """
     Rank regulators whose pooled embeddings differ most between two region BEDs
@@ -91,6 +93,8 @@ def interpret_regulator_effects_between_region_groups(
         batch_size=batch_size,
         chrombert_cache_dir=chrombert_cache_dir,
         num_workers=num_workers,
+        model_config=model_config,
+        data_config=data_config,
     )
     if chrombert_region_file is not None:
         args.chrombert_region_file = chrombert_region_file

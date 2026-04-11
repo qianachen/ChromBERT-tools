@@ -33,6 +33,8 @@ def interpret_regulator_regulator_interactions(
     chrombert_region_file: Optional[str] = None,
     chrombert_regulator_file: Optional[str] = None,
     return_data: bool = True,
+    model_config: Optional[str] = None,
+    data_config: Optional[str] = None,
 ) -> Optional[pd.DataFrame]:
     """
     Pool regulator embeddings over user regions, threshold pairwise cosines by a
@@ -105,6 +107,8 @@ def interpret_regulator_regulator_interactions(
         ignore_regulator=ignore_regulator,
         gep=gep,
         flank_window=flank_window,
+        model_config=model_config,
+        data_config=data_config,
     )
     if chrombert_region_file is not None:
         args.chrombert_region_file = chrombert_region_file
