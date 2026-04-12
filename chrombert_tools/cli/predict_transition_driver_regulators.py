@@ -56,7 +56,7 @@ def run(args):
         print("Stage 2 (acc): train ChromBERT to predict chromatin accessibility changes in cell state transition")
 
         args_acc.ft_ckpt = getattr(args_acc, "ft_ckpt_acc", None)
-        model_tuned, data_config = load_train_model_acc(args_acc, files_dict, acc_odir)
+        model_tuned, data_config, _ = load_train_model_acc(args_acc, files_dict, acc_odir)
         print("Finished Stage 2 (acc)")
 
         acc_emb_odir = f"{acc_odir}/emb"
@@ -90,7 +90,7 @@ def run(args):
 
         print("Stage 2 (exp): train ChromBERT to predict expression changes in cell state transition")
         args_exp.ft_ckpt = getattr(args_exp, "ft_ckpt_exp", None)
-        model_tuned, data_config = load_train_model_gep(args_exp, files_dict, exp_odir)
+        model_tuned, data_config, train_try_odir = load_train_model_gep(args_exp, files_dict, exp_odir)
 
         print("Finished Stage 2 (exp)")
 
