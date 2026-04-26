@@ -45,6 +45,9 @@ def region_function_classification(
     pretrain_ckpt: Optional[str] = None,
     mtx_mask: Optional[str] = None,
     meta_file: Optional[str] = None,
+    train_chr: Optional[str] = None,
+    valid_chr: Optional[str] = None,
+    fast_max_total: int = 20000,
 ) -> ChrombertPredictionRunResult:
     """
     Train or load a ChromBERT functional classifier and run prediction (same pipeline
@@ -78,6 +81,14 @@ def region_function_classification(
             DataLoader batch size.
         mode:
             ``fast`` (downsample) or ``full``.
+        fast_max_total:
+            In ``fast`` mode only: approximate total region budget, divided evenly
+            across classes (default ``20000``). Ignored when ``mode`` is ``full``.
+        train_chr, valid_chr:
+            Optional ``;``-separated chromosome lists for train/validation splits;
+            remaining chromosomes are test. Both must be set together or omitted.
+            In ``fast`` mode the per-class budget from ``fast_max_total`` still applies,
+            then splits follow these chromosomes. Default is random 80/10/10 split.
         chrombert_cache_dir:
             ChromBERT data root; ``None`` → ``~/.cache/chrombert/data``.
         chrombert_region_file, chrombert_region_emb_file, chrombert_regulator_file,
@@ -109,6 +120,9 @@ def region_function_classification(
         batch_size=batch_size,
         mode=str(mode).lower(),
         chrombert_cache_dir=chrombert_cache_dir,
+        train_chr=train_chr,
+        valid_chr=valid_chr,
+        fast_max_total=fast_max_total,
     )
 
     if chrombert_region_file is not None:

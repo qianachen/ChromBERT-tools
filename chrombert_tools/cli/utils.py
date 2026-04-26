@@ -487,6 +487,132 @@ def split_data(df, name, odir):
     train[columns].to_csv(f"{odir}/train{name}.csv", index=False)
     test[columns].to_csv(f"{odir}/test{name}.csv", index=False)
     valid[columns].to_csv(f"{odir}/valid{name}.csv", index=False)
+
+
+def parse_chrom_list_string(chrom_str: str, genome: str) -> frozenset:
+    """
+    Parse ';'-separated chromosome names into a frozenset of integer IDs
+    (same encoding as :func:`chrom_to_int_series`).
+    """
+    if chrom_str is None or not str(chrom_str).strip():
+        return frozenset()
+    parts = [p.strip() for p in str(chrom_str).split(";") if p.strip()]
+    if not parts:
+        return frozenset()
+    mapped = chrom_to_int_series(pd.Series(parts), genome)
+    if mapped.isna().any():
+        bad = [parts[i] for i in range(len(parts)) if pd.isna(mapped.iloc[i])]
+        raise ValueError(f"Unrecognized chromosome name(s) for genome {genome}: {bad}")
+    return frozenset(int(x) for x in mapped)
+
+
+def resolve_chrom_split_sets(genome, train_chr, valid_chr, test_chr):
+    """
+    Parse CLI-style ``;``-separated chromosome lists for train/valid/(optional) test.
+
+    Returns ``(train_set, valid_set, test_set)`` as frozensets of int chromosome ids, or
+    ``(None, None, None)`` to use random 80/10/10 :func:`split_data`.
+
+    If ``test_chr`` is blank, ``test_set`` is None and :func:`split_data_by_chrom` assigns
+    test = all remaining chromosomes. If ``test_chr`` is set, the three sets must be
+    pairwise disjoint and every split row must land on one of them (enforced in
+    :func:`split_data_by_chrom`).
+    """
+    def _blank(s):
+        return s is None or not str(s).strip()
+
+    b_tr, b_va, b_te = _blank(train_chr), _blank(valid_chr), _blank(test_chr)
+    if b_tr and b_va and b_te:
+        return None, None, None
+    if b_tr or b_va:
+        raise ValueError(
+            "--train-chr and --valid-chr must be provided together, or omit all of "
+            "--train-chr, --valid-chr, and --test-chr (random split)."
+        )
+    tr = parse_chrom_list_string(train_chr, genome)
+    va = parse_chrom_list_string(valid_chr, genome)
+    if not tr or not va:
+        raise ValueError(
+            "--train-chr and --valid-chr must each name at least one chromosome."
+        )
+    inter = tr & va
+    if inter:
+        raise ValueError(
+            f"--train-chr and --valid-chr must not overlap: {sorted(inter)}"
+        )
+    if b_te:
+        return tr, va, None
+    te = parse_chrom_list_string(test_chr, genome)
+    if not te:
+        raise ValueError(
+            "When using explicit --test-chr, it must name at least one chromosome."
+        )
+    if tr & te or va & te:
+        raise ValueError(
+            f"--test-chr must not overlap with --train-chr or --valid-chr: "
+            f"train∩test={sorted(tr & te)}, valid∩test={sorted(va & te)}"
+        )
+    return tr, va, te
+
+
+def split_data_by_chrom(
+    df, name, odir, genome, train_chroms: frozenset, valid_chroms: frozenset, test_chroms=None
+):
+    """
+    Split by chromosome: rows on ``train_chroms`` → train, ``valid_chroms`` → valid.
+
+    If ``test_chroms`` is None, test = all rows not on train or valid chromosomes.
+    If ``test_chroms`` is a frozenset, test = rows on those chromosomes only; any row
+    whose chromosome is not in train ∪ valid ∪ test raises.
+    """
+    columns = ["chrom", "start", "end", "build_region_index", "label"]
+    c_int = chrom_to_int_series(df["chrom"], genome)
+    if c_int.isna().any():
+        n_bad = int(c_int.isna().sum())
+        raise ValueError(
+            f"Chromosome split: {n_bad} row(s) have unrecognized chromosome values."
+        )
+    train_mask = c_int.isin(train_chroms)
+    valid_mask = c_int.isin(valid_chroms)
+    if test_chroms is None:
+        test_mask = ~(train_mask | valid_mask)
+    else:
+        covered = train_chroms | valid_chroms | test_chroms
+        in_cov = c_int.isin(covered)
+        if not bool(in_cov.all()):
+            n_orphan = int((~in_cov).sum())
+            raise ValueError(
+                "Chromosome split: {n} row(s) lie on chromosomes not listed in any of "
+                "--train-chr, --valid-chr, or --test-chr. "
+                "Assign every data chromosome to one of the three, or use implicit test "
+                "(omit --test-chr so all other chromosomes become test).".format(
+                    n=n_orphan
+                )
+            )
+        test_mask = c_int.isin(test_chroms)
+    train = df[train_mask]
+    valid = df[valid_mask]
+    test = df[test_mask]
+    if len(train) == 0:
+        raise ValueError(
+            "Chromosome split: train set is empty. Check --train-chr vs. your regions."
+        )
+    if len(valid) == 0:
+        raise ValueError(
+            "Chromosome split: validation set is empty. Check --valid-chr vs. your regions."
+        )
+    if len(test) == 0:
+        raise ValueError(
+            "Chromosome split: test set is empty. If using implicit test (no --test-chr), "
+            "use fewer --train-chr/--valid-chr so some chromosomes remain for test. "
+            "With explicit --test-chr, ensure that split matches your data."
+        )
+    print(
+        f"  Chromosome split sizes: train={len(train)}, valid={len(valid)}, test={len(test)}"
+    )
+    train[columns].to_csv(f"{odir}/train{name}.csv", index=False)
+    test[columns].to_csv(f"{odir}/test{name}.csv", index=False)
+    valid[columns].to_csv(f"{odir}/valid{name}.csv", index=False)
     
 def cal_metrics_regression(preds, labels):
     metrics_pearsonr = tm.PearsonCorrCoef()

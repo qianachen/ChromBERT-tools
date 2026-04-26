@@ -20,7 +20,7 @@ from sklearn.metrics.pairwise import cosine_similarity
 from chrombert import ChromBERTFTConfig, DatasetConfig
 
 from .utils import resolve_paths, check_files, overlap_regulator_func, overlap_region
-from .utils import split_data, cal_metrics_binary, factor_rank
+from .utils import split_data, split_data_by_chrom, parse_chrom_list_string, cal_metrics_binary, factor_rank
 from .utils_train_cell import retry_train
 
 
@@ -58,7 +58,26 @@ def validate_args(args):
         args.function_names = list(args.function_names)
 
     args.function_modes = [m.lower() for m in args.function_modes]
-    
+
+    train_chr = getattr(args, "train_chr", None)
+    valid_chr = getattr(args, "valid_chr", None)
+    if train_chr is None and valid_chr is None:
+        args.train_chrom_set = None
+        args.valid_chrom_set = None
+    else:
+        if train_chr is None or valid_chr is None:
+            raise ValueError(
+                "--train-chr and --valid-chr must be provided together, or omit both."
+            )
+        tr_set = parse_chrom_list_string(train_chr, args.genome)
+        va_set = parse_chrom_list_string(valid_chr, args.genome)
+        inter = tr_set & va_set
+        if inter:
+            raise ValueError(
+                f"--train-chr and --valid-chr must not overlap: {sorted(inter)}"
+            )
+        args.train_chrom_set = tr_set
+        args.valid_chrom_set = va_set
 
 
 # =========================
@@ -142,18 +161,54 @@ def prepare_dataset(args, files_dict, d_odir):
         print(f"  {name}: {(combined['label'] == idx).sum()} (final)")
     print(f"  Total: {len(combined)}")
 
+    use_chrom_split = args.train_chrom_set is not None
+
     if args.mode == "fast":
-        max_per_class = max(1, 20000 // n_classes)
-        print(f"  Fast mode: ~{max_per_class} regions per class")
+        cap = int(getattr(args, "fast_max_total", 20000))
+        if cap < 1:
+            raise ValueError("--fast-max-total must be >= 1")
+        max_per_class = max(1, cap // n_classes)
+        print(
+            f"  Fast mode: up to {max_per_class} regions per class "
+            f"(total budget ≈ {cap})"
+        )
         sampled = (
             combined.groupby("label", group_keys=False)
             .apply(lambda g: g.sample(n=min(max_per_class, len(g)), random_state=55))
             .reset_index(drop=True)
         )
         sampled.to_csv(os.path.join(d_odir, "total_sampled.csv"), index=False)
-        split_data(sampled, "_sampled", d_odir)
+        if use_chrom_split:
+            print(
+                "  Fast mode + chromosome split: train/valid/test by --train-chr / "
+                "--valid-chr (test = remaining chromosomes)"
+            )
+            split_data_by_chrom(
+                sampled,
+                "_sampled",
+                d_odir,
+                args.genome,
+                args.train_chrom_set,
+                args.valid_chrom_set,
+            )
+        else:
+            split_data(sampled, "_sampled", d_odir)
     else:
-        split_data(combined, "", d_odir)
+        if use_chrom_split:
+            print(
+                "  Full mode: train/valid/test by chromosome "
+                "(--train-chr / --valid-chr; test = remaining chromosomes)"
+            )
+            split_data_by_chrom(
+                combined,
+                "",
+                d_odir,
+                args.genome,
+                args.train_chrom_set,
+                args.valid_chrom_set,
+            )
+        else:
+            split_data(combined, "", d_odir)
         args.mode = "full"
 
 

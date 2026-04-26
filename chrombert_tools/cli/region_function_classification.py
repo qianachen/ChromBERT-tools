@@ -255,9 +255,16 @@ def run(args):
         ("predict_file", None),
         ("ignore_regulator", None),
         ("mode", "fast"),
+        ("train_chr", None),
+        ("valid_chr", None),
+        ("fast_max_total", 20000),
     ]:
         if not hasattr(args, attr):
             setattr(args, attr, default)
+    for _attr in ("train_chr", "valid_chr"):
+        v = getattr(args, _attr, None)
+        if v is not None and not str(v).strip():
+            setattr(args, _attr, None)
 
     predict_only = _is_predict_only(args)
 
@@ -434,13 +441,37 @@ def run(args):
     "--mode",
     default="fast", show_default=True,
     type=click.Choice(["fast", "full"], case_sensitive=False),
-    help="'fast' downsamples to ~20k regions; 'full' uses all.",
+    help="'fast' subsamples per class (see --fast-max-total); 'full' uses all regions.",
+)
+@click.option(
+    "--fast-max-total",
+    "fast_max_total",
+    default=20000,
+    show_default=True,
+    type=int,
+    help="Fast mode only: approximate total region budget, split evenly across classes. "
+         "Default 20000; increase for more training data (slower). Ignored when --mode full.",
 )
 @click.option(
     "--chrombert-cache-dir", "chrombert_cache_dir",
     default="~/.cache/chrombert/data", show_default=True,
     type=click.Path(file_okay=False),
     help="ChromBERT cache directory.",
+)
+@click.option(
+    "--train-chr", "train_chr",
+    default=None,
+    type=str,
+    help="Semicolon-separated chromosomes for training (e.g. chr1;chr2;chr3). "
+         "Must be used together with --valid-chr; all other chromosomes are test. "
+         "Default: random 80%%/10%%/10%% split.",
+)
+@click.option(
+    "--valid-chr", "valid_chr",
+    default=None,
+    type=str,
+    help="Semicolon-separated chromosomes for validation. "
+         "Must be used together with --train-chr.",
 )
 def region_function_classification(
     function_beds,
@@ -455,6 +486,9 @@ def region_function_classification(
     batch_size,
     mode,
     chrombert_cache_dir,
+    train_chr,
+    valid_chr,
+    fast_max_total,
 ):
     """
     Classify genomic regions into N function classes.
@@ -475,6 +509,9 @@ def region_function_classification(
         batch_size=batch_size,
         mode=str(mode).lower(),
         chrombert_cache_dir=chrombert_cache_dir,
+        train_chr=train_chr,
+        valid_chr=valid_chr,
+        fast_max_total=fast_max_total,
     )
     run(args)
 

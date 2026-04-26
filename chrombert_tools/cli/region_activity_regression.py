@@ -1,6 +1,5 @@
 import json
 import os
-import pickle
 
 import click
 from types import SimpleNamespace
@@ -13,9 +12,9 @@ from tqdm import tqdm
 from chrombert_hf import ChromBERTFTConfig, DatasetConfig
 
 from .utils import resolve_paths, check_files, check_region_file
-from .utils import split_data, bw_getSignal_bins
+from .utils import split_data, split_data_by_chrom, resolve_chrom_split_sets, bw_getSignal_bins
 from .utils import cal_metrics_regression
-from .utils import factor_rank, overlap_region, get_model_name
+from .utils import overlap_region, get_model_name
 from .utils_train_cell import retry_train
 from .prediction_run_result import ChrombertPredictionRunResult
 
@@ -73,6 +72,8 @@ def make_acc_dataset(args, files_dict, data_odir):
     dual_state = len(acc_signal2_list) > 0
     include_bg = getattr(args, "include_tss_background", False)
 
+    subtract_bg = getattr(args, "subtract_background_signal", True)
+
     if not acc_peak1_list or not acc_signal1_list:
         return args, False
 
@@ -89,19 +90,53 @@ def make_acc_dataset(args, files_dict, data_odir):
                 args.mode = "fast"
             else:
                 args.mode = "full"
+            args.dual_state = dual_state
             if os.path.exists(meta_path):
                 with open(meta_path) as f:
                     meta = json.load(f)
-                args.dual_state = meta.get("dual_state", True)
-            else:
-                args.dual_state = True
+                meta_dual = meta.get("dual_state")
+                if meta_dual is not None and meta_dual != dual_state:
+                    raise ValueError(
+                        f"Existing dataset in {data_odir} was built with dual_state={meta_dual}, "
+                        f"but this run has dual_state={dual_state} (check --acc-signal2). "
+                        "Remove the dataset directory or use a different --odir."
+                    )
+                if not dual_state:
+                    if meta.get("subtract_background_signal", False) != subtract_bg:
+                        raise ValueError(
+                            f"Existing dataset in {data_odir} was built with "
+                            f"--subtract-reference-baseline={meta.get('subtract_background_signal', False)}, "
+                            f"but this run requests {subtract_bg}. "
+                            "Remove the dataset directory or use a different --odir."
+                        )
+                    if meta.get("include_tss_background", False) != include_bg:
+                        raise ValueError(
+                            f"Existing dataset in {data_odir} was built with "
+                            f"--include-tss-background={meta.get('include_tss_background', False)}, "
+                            f"but this run requests {include_bg}. "
+                            "Remove the dataset directory or use a different --odir."
+                        )
+                if dual_state:
+                    if meta.get("include_tss_background", False) != include_bg:
+                        raise ValueError(
+                            f"Existing dataset in {data_odir} was built with "
+                            f"--include-tss-background={meta.get('include_tss_background', False)}, "
+                            f"but this run requests {include_bg}. "
+                            "Remove the dataset directory or use a different --odir."
+                        )
             return args, True
 
         print("Processing stage 1: prepare chromatin accessibility dataset")
         if dual_state:
             print("  Mode: two states (fold-change label)")
         else:
-            print("  Mode: state 1 only (label = log2(1 + cell1 signal))")
+            if not subtract_bg:
+                print("  Mode: state 1 only (label = log2(1 + cell1 signal))")
+            else:
+                print(
+                    "  Mode: state 1 only (label = log2(1 + cell1 signal) - log2(1 + reference baseline))"
+                )
+            
         if include_bg:
             tss_flank = getattr(args, "tss_flank", 10000)
             print(f"  TSS ± flank background regions: enabled, flank distance: {tss_flank} bp")
@@ -166,25 +201,74 @@ def make_acc_dataset(args, files_dict, data_odir):
                 total_region_signal["label"] = -total_region_signal["label"]
         else:
             total_region_signal = pd.concat(
-                [total_region_processed, cell1_signal], axis=1
-            )
+                    [total_region_processed, cell1_signal], axis=1
+                )
             total_region_signal["log2_cell1_signal"] = np.log2(1 + total_region_signal["cell1_signal"])
             total_region_signal["label"] = total_region_signal["log2_cell1_signal"]
+            
+            if subtract_bg:
+                base_ca_signal_array = np.load(files_dict["base_ca_signal"])
+                total_region_signal["baseline"] = base_ca_signal_array[
+                    total_region_signal["build_region_index"].values
+                ]
+                total_region_signal["log2_baseline"] = np.log2(1 + total_region_signal["baseline"])
+                total_region_signal["label"] = (
+                    total_region_signal["log2_cell1_signal"] - total_region_signal["log2_baseline"]
+                )
+                
 
         total_region_signal.to_csv(f"{data_odir}/total.csv", index=False)
+
+        tr, va, te = resolve_chrom_split_sets(
+            args.genome,
+            getattr(args, "train_chr", None),
+            getattr(args, "valid_chr", None),
+            getattr(args, "test_chr", None),
+        )
+        use_chrom_split = tr is not None
 
         if args.mode == "fast" and len(total_region_signal) > 20000:
             total_region_signal_sampled = (
                 total_region_signal.sample(n=20000, random_state=55).reset_index(drop=True)
             )
             total_region_signal_sampled.to_csv(f"{data_odir}/total_sampled.csv", index=False)
-            split_data(total_region_signal_sampled, "_sampled", data_odir)
             print(f" total region: {len(total_region_signal)}")
             print(f"  Fast mode: downsampled to ~{20000} regions")
+            if use_chrom_split:
+                print(
+                    "  Fast mode + chromosome split: train/valid/test from "
+                    "--train-chr / --valid-chr (and optional explicit --test-chr)"
+                )
+                split_data_by_chrom(
+                    total_region_signal_sampled,
+                    "_sampled",
+                    data_odir,
+                    args.genome,
+                    tr,
+                    va,
+                    te,
+                )
+            else:
+                split_data(total_region_signal_sampled, "_sampled", data_odir)
         else:
             args.mode = "full"
-            split_data(total_region_signal, "", data_odir)
             print(f"  Full mode: using all {len(total_region_signal)} regions")
+            if use_chrom_split:
+                print(
+                    "  Full mode + chromosome split: see --train-chr, --valid-chr, "
+                    "--test-chr (test = remaining chrs if --test-chr omitted)"
+                )
+                split_data_by_chrom(
+                    total_region_signal,
+                    "",
+                    data_odir,
+                    args.genome,
+                    tr,
+                    va,
+                    te,
+                )
+            else:
+                split_data(total_region_signal, "", data_odir)
         if dual_state:
             up_region = (
                 total_region_signal[total_region_signal["label"] > 1]
@@ -208,7 +292,11 @@ def make_acc_dataset(args, files_dict, data_odir):
         args.dual_state = dual_state
         with open(meta_path, "w") as f:
             json.dump(
-                {"dual_state": dual_state, "include_tss_background": include_bg},
+                {
+                    "dual_state": dual_state,
+                    "include_tss_background": include_bg,
+                    "subtract_background_signal": subtract_bg,
+                },
                 f,
             )
 
@@ -224,7 +312,7 @@ def prepare_dataset(args, files_dict, data_odir):
             "Required: --acc-peak1 and --acc-signal1 (use ';' for multiple files). "
             "Omit --acc-signal2 for single-state mode (label = log2(1 + state1 signal), no fold change). "
             "With two states, provide --acc-signal2; optional --acc-peak2. "
-            "Use --include-tss-background to add TSS±flank background (default: no background)."
+            "Optional: --include-tss-background adds TSS±flank bins (recommended with --acc-signal2)."
         )
     return args
 
@@ -383,9 +471,17 @@ def run(args):
         ("ft_ckpt", None),
         ("predict_file", None),
         ("mode", "fast"),
+        ("subtract_background_signal", True),
+        ("train_chr", None),
+        ("valid_chr", None),
+        ("test_chr", None),
     ]:
         if not hasattr(args, attr):
             setattr(args, attr, default)
+    for _attr in ("train_chr", "valid_chr", "test_chr"):
+        v = getattr(args, _attr, None)
+        if v is not None and not str(v).strip():
+            setattr(args, _attr, None)
 
     predict_only = _is_predict_only(args)
 
@@ -399,8 +495,16 @@ def run(args):
         # "pretrain_ckpt",
         # "mtx_mask",
     ]
+    acc_signal2_list = _semicolon_paths(getattr(args, "acc_signal2", None))
+    dual_state_run = len(acc_signal2_list) > 0
     if not predict_only and getattr(args, "include_tss_background", False):
         required_keys.append("gene_meta_tsv")
+    if (
+        not predict_only
+        and not dual_state_run
+        and getattr(args, "subtract_background_signal", True)
+    ):
+        required_keys.append("base_ca_signal")
     check_files(files_dict, required_keys=required_keys)
 
     data_odir = os.path.join(odir, "dataset")
@@ -571,7 +675,23 @@ def run(args):
     "include_tss_background",
     is_flag=True,
     default=False,
-    help="Add protein-coding TSS±flank bins as background (needs gene_meta). Default: no background.",
+    help=(
+        "Add protein-coding TSS±flank ChromBERT bins to the training region set (requires "
+        "gene_meta). Recommended for two-state / transition runs (--acc-signal2); optional "
+        "in single-state mode."
+    ),
+)
+@click.option(
+    "--subtract-reference-baseline",
+    "subtract_reference_baseline",
+    is_flag=True,
+    default=True,
+    show_default=True,
+    help=(
+        "Single-state mode only (omit --acc-signal2). Omitted: label = log2(1+state-1) minus "
+        "log2(1+reference baseline) (default, packaged base). Pass this flag to use only "
+        "log2(1+state-1) as the label (no baseline subtraction). Ignored with --acc-signal2."
+    ),
 )
 @click.option(
     "--chrombert-cache-dir",
@@ -589,6 +709,30 @@ def run(args):
     type=int,
     help="Batch size.",
 )
+@click.option(
+    "--train-chr", "train_chr",
+    default=None,
+    type=str,
+    help="Semicolon-separated chromosomes for training (e.g. chr1;chr2;chr3). "
+         "Must be used together with --valid-chr. Omit all of --train-chr, --valid-chr, "
+         "and --test-chr to use a random 80%%/10%%/10%% split. "
+         "Default: test = all other chromosomes in the data (unless --test-chr is set).",
+)
+@click.option(
+    "--valid-chr", "valid_chr",
+    default=None,
+    type=str,
+    help="Semicolon-separated chromosomes for validation. "
+         "Must be used together with --train-chr.",
+)
+@click.option(
+    "--test-chr", "test_chr",
+    default=None,
+    type=str,
+    help="Optional. Semicolon-separated chromosomes for the held-out test set. "
+         "If omitted, any chromosome not in --train-chr or --valid-chr is used for test. "
+         "If set, train/valid/test must be disjoint and every data row must fall on one of them.",
+)
 def region_activity_regression(
     acc_peak1,
     acc_peak2,
@@ -603,8 +747,12 @@ def region_activity_regression(
     ft_ckpt,
     tss_flank,
     include_tss_background,
+    subtract_reference_baseline,
     chrombert_cache_dir,
     batch_size,
+    train_chr,
+    valid_chr,
+    test_chr,
 ):
     """
     Predict region activity from chromatin accessibility, or fold changes between two states.
@@ -627,8 +775,12 @@ def region_activity_regression(
         ft_ckpt=ft_ckpt,
         tss_flank=tss_flank,
         include_tss_background=include_tss_background,
+        subtract_background_signal=subtract_reference_baseline,
         chrombert_cache_dir=chrombert_cache_dir,
         batch_size=batch_size,
+        train_chr=train_chr,
+        valid_chr=valid_chr,
+        test_chr=test_chr,
     )
     run(args)
 

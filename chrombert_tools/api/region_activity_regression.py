@@ -25,8 +25,12 @@ def region_activity_regression(
     ft_ckpt: Optional[str] = None,
     tss_flank: int = 10000,
     include_tss_background: bool = False,
+    subtract_reference_baseline: bool = True,
     chrombert_cache_dir: Optional[str] = None,
     batch_size: int = 4,
+    train_chr: Optional[str] = None,
+    valid_chr: Optional[str] = None,
+    test_chr: Optional[str] = None,
     chrombert_region_file: Optional[str] = None,
     chrombert_region_emb_file: Optional[str] = None,
     hdf5_file: Optional[str] = None,
@@ -36,6 +40,18 @@ def region_activity_regression(
 ) -> ChrombertPredictionRunResult:
     """
     Same pipeline as ``chrombert-tools region_activity_regression``.
+
+    Args:
+        train_chr, valid_chr, test_chr:
+            Optional ``;``-separated chromosome lists for the dataset split (same semantics
+            as the CLI: omit all three for a random 80/10/10 split; with train and
+            valid, test is implicit unless ``test_chr`` is set). See
+            :func:`chrombert_tools.cli.utils.resolve_chrom_split_sets`.
+        subtract_reference_baseline:
+            Single-state only; same meaning as the CLI flag ``--subtract-reference-baseline``.
+            Default ``True``: label uses log2(1+state-1) minus log2(1+reference baseline) per bin.
+            Set ``False`` for the raw log2(1+state-1) label only. On the command line, passing
+            ``--subtract-reference-baseline`` selects the raw log2 label (Click inverts the default).
 
     Returns:
         :class:`~chrombert_tools.prediction_run_result.ChrombertPredictionRunResult`
@@ -58,8 +74,12 @@ def region_activity_regression(
         ft_ckpt=ft_ckpt,
         tss_flank=tss_flank,
         include_tss_background=include_tss_background,
+        subtract_background_signal=subtract_reference_baseline,
         chrombert_cache_dir=chrombert_cache_dir,
         batch_size=batch_size,
+        train_chr=train_chr,
+        valid_chr=valid_chr,
+        test_chr=test_chr,
     )
     if chrombert_region_file is not None:
         args.chrombert_region_file = chrombert_region_file
