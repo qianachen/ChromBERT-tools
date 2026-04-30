@@ -8,6 +8,10 @@ SPHINXBUILD   ?= sphinx-build
 SOURCEDIR     = source
 BUILDDIR      = build
 
+# Sphinx calls locale.setlocale(LC_ALL, ''); invalid host LANG/LC_* causes
+# locale.Error. Prefer C (always available). Override if needed, e.g. LC_ALL=en_US.UTF-8.
+export LC_ALL ?= C
+
 # Put it first so that "make" without argument is like "make help".
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)

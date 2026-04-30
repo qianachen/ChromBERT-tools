@@ -1,4 +1,6 @@
 import os
+from typing import Optional
+
 import click
 from types import SimpleNamespace
 
@@ -15,6 +17,26 @@ from .utils_interpret import (
 )
 
 
+def _resolve_distance_range(args) -> tuple:
+    """
+    Return ``(distance_min, distance_max)`` from args.
+
+    Both values are non-negative absolute distances (bp); direction (upstream vs
+    downstream) is intentionally ignored. 
+    """
+    dmin = getattr(args, "distance_min", None)
+    dmax = getattr(args, "distance_max", None)
+    if dmax is None:
+        dmax = 250_000
+    if dmin is None:
+        dmin = 0
+    dmin = int(abs(int(dmin)))
+    dmax = int(abs(int(dmax)))
+    if dmin > dmax:
+        raise click.UsageError(
+            f"--distance-min ({dmin}) must be <= --distance-max ({dmax})."
+        )
+    return dmin, dmax
 
 
 def _normalize_chrom_int(df: pd.DataFrame, genome: str, col: str = "chrom") -> pd.DataFrame:
@@ -26,6 +48,38 @@ def _normalize_chrom_int(df: pd.DataFrame, genome: str, col: str = "chrom") -> p
     out = out.dropna(subset=[col]).copy()
     out[col] = out[col].astype(int)
     return out
+
+
+def _filter_gene_tss(
+    gene_tss: pd.DataFrame,
+    filter_gene_name: Optional[str],
+    filter_gene_id: Optional[str],
+) -> pd.DataFrame:
+    """
+    Keep rows where gene_name is in the name list and/or gene_id is in the id list.
+    If both lists are non-empty, a row is kept if it matches the name list *or* the id list.
+    """
+    names = [x.strip() for x in (filter_gene_name or "").split(";") if str(x).strip()]
+    ids = [x.strip() for x in (filter_gene_id or "").split(";") if str(x).strip()]
+    if not names and not ids:
+        return gene_tss
+    mask = pd.Series(False, index=gene_tss.index, dtype=bool)
+    if names:
+        mask |= gene_tss["gene_name"].astype(str).isin(names)
+    if ids:
+        mask |= gene_tss["gene_id"].astype(str).isin(ids)
+    out = gene_tss[mask].reset_index(drop=True)
+    if len(out) == 0:
+        raise ValueError(
+            "Gene filter (--gene / --gene-id) removed all TSS rows; check symbols or IDs in gene meta."
+        )
+    n0 = len(gene_tss)
+    print(
+        f"  Gene filter: kept {len(out)}/{n0} TSS rows (gene_name in [{len(names)} names], "
+        f"gene_id in [{len(ids)} ids])"
+    )
+    return out
+
 
 def get_union_embeddings(args, files_dict, sup_file, union_idx):
     odir = args.odir
@@ -83,6 +137,31 @@ def run(args, return_data=False):
         gene_tss = _normalize_chrom_int(gene_tss, args.genome)
         gene_tss = gene_tss.sort_values(by="build_region_index").reset_index(drop=True)
 
+        fgn = getattr(args, "filter_gene_name", None)
+        fgid = getattr(args, "filter_gene_id", None)
+        if fgn and not str(fgn).strip():
+            fgn = None
+        if fgid and not str(fgid).strip():
+            fgid = None
+        filter_genes = bool(fgn or fgid)
+        gene_tss = _filter_gene_tss(gene_tss, fgn, fgid)
+        if filter_genes:
+            # Region1: keep only rows on chromosomes that appear in the filtered TSS.
+            keep_chrom = set(gene_tss["chrom"].unique().tolist())
+            n_r = len(overlap_bed)
+            overlap_bed = overlap_bed[overlap_bed["chrom"].isin(keep_chrom)].reset_index(drop=True)
+            if len(overlap_bed) == 0:
+                raise ValueError(
+                    "With --gene / --gene-id, no region1 (input BED) rows lie on the same "
+                    f"chromosome(s) as the selected genes: {sorted(keep_chrom)[:20]}{'...' if len(keep_chrom) > 20 else ''}. "
+                    "Use a BED that overlaps those chromosomes or adjust the filter."
+                )
+            if len(overlap_bed) < n_r:
+                print(
+                    f"  Gene filter: kept {len(overlap_bed)}/{n_r} region1 (BED) rows on "
+                    f"{len(keep_chrom)} chromosome(s) matching the selected gene(s)"
+                )
+
         model_input = (
             pd.concat(
                 [overlap_bed, gene_tss[["chrom", "start", "end", "build_region_index"]]]
@@ -96,11 +175,17 @@ def run(args, return_data=False):
         union_idx = model_input["build_region_index"].to_numpy(dtype=np.int64)
         region_embs = get_union_embeddings(args, files_dict, sup_file, union_idx)
 
-        window = getattr(args, "distance_window", 250_000)
+        distance_min, distance_max = _resolve_distance_range(args)
         pairs_cos = cal_sim_tss_region_pairs(
-            overlap_bed, gene_tss, union_idx, region_embs, window=window
+            overlap_bed,
+            gene_tss,
+            union_idx,
+            region_embs,
+            distance_min=distance_min,
+            distance_max=distance_max,
         )
         pairs_cos["chrom"] = int_to_chrom_series(pairs_cos["chrom"], args.genome)
+        pairs_cos = pairs_cos.sort_values(by=["tss_build_region_index", "cos_sim"], ascending=[True, False]).reset_index(drop=True)
         out_tsv = os.path.join(odir, "tss_region_pairs_cos.tsv")
         pairs_cos.to_csv(out_tsv, sep="\t", index=False)
         print("Finished!")
@@ -145,23 +230,25 @@ def run(args, return_data=False):
     union_idx = model_input["build_region_index"].to_numpy(dtype=np.int64)
     region_embs = get_union_embeddings(args, files_dict, sup_file, union_idx)
 
-    window = getattr(args, "distance_window", 250_000)
+    distance_min, distance_max = _resolve_distance_range(args)
     pairs_cos = cross_region_set_cosine_pairs(
         overlap1,
         overlap2,
         union_idx,
         region_embs,
-        max_genomic_dist_bp=window,
+        distance_min=distance_min,
+        distance_max=distance_max,
     )
     # print(pairs_cos)
     pairs_cos["set1_chrom"] = int_to_chrom_series(pairs_cos["set1_chrom"], args.genome)
     pairs_cos["set2_chrom"] = int_to_chrom_series(pairs_cos["set2_chrom"], args.genome)
 
     out_tsv = os.path.join(odir, "region_set_pairs_cos.tsv")
-    pairs_cos.to_csv(out_tsv, sep="\t", index=False)
+    pairs_cos.sort_values(by=["set1_region_index", "cos_sim"], ascending=[True, False]).reset_index(drop=True).to_csv(out_tsv, sep="\t", index=False)
     print("Finished!")
     print(
-        f"Set1 x set2 region-pair cosines (same chrom, genomic_dist_bp <= {window}) saved to: {out_tsv}"
+        f"Set1 x set2 region-pair cosines (same chrom, "
+        f"{distance_min} <= genomic_dist_bp <= {distance_max}) saved to: {out_tsv}"
     )
     if return_data:
         return pairs_cos
@@ -187,6 +274,23 @@ def run(args, return_data=False):
     help="Optional second BED. If omitted: infer region1–promoter interaction pairs "
     "If set: same-chromosome pairs (region2 regions vs region1 regions) only ",
 )
+@click.option(
+    "--gene",
+    "filter_gene_name",
+    default=None,
+    type=str,
+    help="TSS/enhancer–promoter mode only (no --region2). Semicolon-separated gene symbols; "
+    "only those genes' TSS are used, and --region BED rows are kept only on chromosomes "
+    "of those genes. --gene-id is OR-combined with this. Default: all genes in meta.",
+)
+@click.option(
+    "--gene-id",
+    "filter_gene_id",
+    default=None,
+    type=str,
+    help="TSS/EP mode only. Semicolon-separated gene_id (e.g. Ensembl); same TSS filter and "
+    "same chromosome restriction of --region as --gene.",
+)
 @click.option("--odir", default="./output", show_default=True, type=click.Path(file_okay=False))
 @click.option(
     "--genome",
@@ -201,14 +305,26 @@ def run(args, return_data=False):
     type=click.Choice(["1kb", "200bp", "2kb", "4kb"], case_sensitive=False),
 )
 @click.option(
-    "--distance-window",
-    "distance_window",
+    "--distance-min",
+    "distance_min",
+    default=0,
+    show_default=True,
+    type=int,
+    help="Min distance (bp), absolute value (>=0). Keep pairs whose unsigned "
+    "interval gap (or |TSS-distal| in EP mode) is >= this value. "
+    "Direction (upstream vs downstream) is ignored.",
+)
+@click.option(
+    "--distance-max",
+    "distance_max",
     default=250_000,
     show_default=True,
     type=int,
-    help="Max distance (bp).  "
-    "keep pairs with interval gap <= this (0 if overlap); cross-chrom dropped.",
+    help="Max distance (bp), absolute value (>=0). Keep pairs whose unsigned "
+    "interval gap (or |TSS-distal| in EP mode) is <= this value; cross-chrom "
+    "pairs are always dropped.",
 )
+
 @click.option("--batch-size", "batch_size", default=4, show_default=True, type=int)
 @click.option(
     "--ft-ckpt",
@@ -265,6 +381,8 @@ def run(args, return_data=False):
 def interpret_region_region_interactions(
     region,
     region2,
+    filter_gene_name,
+    filter_gene_id,
     odir,
     genome,
     resolution,
@@ -276,14 +394,18 @@ def interpret_region_region_interactions(
     ignore_regulator,
     gep,
     flank_window,
-    distance_window,
+    distance_min,
+    distance_max,
     model_config,
     data_config,
 ):
-    """Region embedding similarities: enhancer-promoter (one BED) or two BEDs within --distance-window."""
+    """Region embedding similarities: enhancer-promoter (one BED) or two BEDs within
+    [--distance-min, --distance-max] (absolute genomic distance, bp)."""
     args = SimpleNamespace(
         region=region,
         region2=region2,
+        filter_gene_name=filter_gene_name,
+        filter_gene_id=filter_gene_id,
         odir=odir,
         genome=genome.lower(),
         resolution=resolution,
@@ -295,7 +417,8 @@ def interpret_region_region_interactions(
         ignore_regulator=ignore_regulator,
         gep=gep,
         flank_window=flank_window,
-        distance_window=distance_window,
+        distance_min=distance_min,
+        distance_max=distance_max,
         model_config=model_config,
         data_config=data_config,
     )

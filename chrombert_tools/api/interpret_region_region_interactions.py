@@ -25,7 +25,11 @@ def interpret_region_region_interactions(
     chrombert_region_emb_file: Optional[str] = None,
     return_data: bool = True,
     region2: Optional[str] = None,
-    distance_window: int = 250_000,
+    filter_gene_name: Optional[str] = None,
+    filter_gene_id: Optional[str] = None,
+    distance_min: int = 0,
+    distance_max: int = 250_000,
+    distance_window: Optional[int] = None,
     batch_size: int = 4,
     ft_ckpt: Optional[str] = None,
     ignore_regulator: Optional[str] = None,
@@ -38,7 +42,8 @@ def interpret_region_region_interactions(
     """
     Compute cosine similarities between region embeddings: either enhancer-promoter
     style pairs (single ``region`` BED vs gene TSS from metadata) or all pairs
-    between two BEDs on the same chromosome within ``distance_window``.
+    between two BEDs on the same chromosome within
+    ``[distance_min, distance_max]`` (absolute genomic distance in bp).
 
     Args:
         region:
@@ -61,10 +66,27 @@ def interpret_region_region_interactions(
         region2:
             Optional second BED. If ``None``: TSS–region mode (requires gene meta in
             cache). If set: pairwise cosines between the two region sets (same chrom,
-            within ``distance_window``).
+            within ``[distance_min, distance_max]``); gene filters are ignored.
+        filter_gene_name:
+            TSS/EP mode only (``region2 is None``). Semicolon-separated ``gene_name``
+            symbols; only those genes' TSS are kept, and the input ``region`` BED is
+            reduced to the same chromosome set as the filtered TSS. Ignored in two-BED
+            mode.
+        filter_gene_id:
+            TSS/EP mode only. Semicolon-separated ``gene_id`` values. Combined with
+            ``filter_gene_name`` with OR: a TSS row is kept if its name or id matches
+            the respective list. Region1 (``region``) is also limited to those
+            chromosomes, like ``filter_gene_name``.
+        distance_min:
+            Minimum absolute genomic separation (bp, ``>=0``) for kept pairs. Pairs
+            whose unsigned interval gap (or ``|TSS-distal|`` in EP mode) is below this
+            value are dropped. Direction (upstream vs downstream) is ignored.
+        distance_max:
+            Maximum absolute genomic separation (bp, ``>=0``) for kept pairs. Pairs
+            beyond this value, or on different chromosomes, are dropped.
         distance_window:
-            Maximum genomic separation (bp) for kept pairs; cross-chromosome pairs
-            are dropped.
+            Deprecated alias of ``distance_max`` (with ``distance_min=0``). When set,
+            it overrides ``distance_max``/``distance_min``.
         batch_size:
             Batch size when computing embeddings from the model.
         ft_ckpt:
@@ -89,6 +111,8 @@ def interpret_region_region_interactions(
     args = SimpleNamespace(
         region=region,
         region2=region2,
+        filter_gene_name=filter_gene_name,
+        filter_gene_id=filter_gene_id,
         odir=odir,
         genome=genome.lower() if isinstance(genome, str) else genome,
         resolution=resolution,
@@ -100,6 +124,8 @@ def interpret_region_region_interactions(
         ignore_regulator=ignore_regulator,
         gep=gep,
         flank_window=flank_window,
+        distance_min=distance_min,
+        distance_max=distance_max,
         distance_window=distance_window,
         model_config=model_config,
         data_config=data_config,

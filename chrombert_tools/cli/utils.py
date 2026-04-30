@@ -66,6 +66,8 @@ def resolve_paths(args = None,genome: str = None, resolution: str = None, chromb
         if genome is None or resolution is None:
             raise ValueError("genome and resolution are required if args is not provided.")
         else:
+            if chrombert_cache_dir is None:
+                chrombert_cache_dir = "~/.cache/chrombert/data"
             args = SimpleNamespace(genome=genome, resolution=resolution, chrombert_cache_dir=chrombert_cache_dir)
     else:
         if genome is not None:

@@ -271,19 +271,39 @@ def cal_sim_tss_region_pairs(
     tss_df: pd.DataFrame,
     union_idx: np.ndarray,
     union_emb: np.ndarray,
-    window: int = 250_000,
+    distance_min: int = 0,
+    distance_max: int = 250_000,
     chunk_size: int = 2_000_000,
     eps: float = 1e-12,
     pre_normalize: bool = True,
     out_col: str = "cos_sim",
+    window: Optional[int] = None,
 ) -> pd.DataFrame:
     """
-    Enhancer–promoter style: pairs of TSS regions vs distal regions within window, cosine sim.
+    Enhancer–promoter style: pairs of TSS regions vs distal regions, cosine sim.
+
+    Pairs kept when ``distance_min <= |dist| <= distance_max`` (bp), where ``dist`` is the
+    signed shortest gap between the TSS point and the distal interval (negative when the
+    TSS lies downstream of the interval, positive upstream, 0 when TSS is inside).
+    Direction is ignored: filtering uses the absolute value.
 
     regions: columns chrom,start,end,build_region_index
     tss_df: chrom,start,end,build_region_index,tss,gene_name,gene_id
     union_idx / union_emb: aligned global region index and embeddings.
+    window: deprecated alias for ``distance_max`` (with ``distance_min=0``); kept for
+    backward compatibility.
     """
+    if window is not None:
+        distance_max = int(window)
+        distance_min = 0
+
+    distance_min = int(abs(distance_min))
+    distance_max = int(abs(distance_max))
+    if distance_min > distance_max:
+        raise ValueError(
+            f"distance_min ({distance_min}) must be <= distance_max ({distance_max})."
+        )
+
     r = regions[["chrom", "start", "end", "build_region_index"]].copy()
     t = tss_df[["chrom", "tss", "build_region_index", "gene_name", "gene_id"]].copy()
     t = t.rename(columns={"build_region_index": "tss_build_region_index"})
@@ -310,8 +330,8 @@ def cal_sim_tss_region_pairs(
 
         for row in t_chr.itertuples(index=False):
             tt = row.tss
-            lo = tt - window
-            hi = tt + window
+            lo = tt - distance_max
+            hi = tt + distance_max
 
             right = np.searchsorted(starts, hi, side="right")
             sizeA = right
@@ -382,7 +402,9 @@ def cal_sim_tss_region_pairs(
             "build_region_index": "distal_region_build_region_index",
         }
     )
-    pairs = pairs[np.abs(pairs["dist"]) <= window].reset_index(drop=True)
+    abs_dist = np.abs(pairs["dist"].to_numpy())
+    keep = (abs_dist >= distance_min) & (abs_dist <= distance_max)
+    pairs = pairs[keep].reset_index(drop=True)
 
     pairs["dist_bin"] = (
         pairs["distal_region_build_region_index"].astype(np.int64)
@@ -449,20 +471,42 @@ def cross_region_set_cosine_pairs(
     overlap_b: pd.DataFrame,
     union_idx: np.ndarray,
     union_emb: np.ndarray,
-    max_genomic_dist_bp: Optional[int] = None,
+    distance_min: int = 0,
+    distance_max: Optional[int] = None,
     eps: float = 1e-12,
+    max_genomic_dist_bp: Optional[int] = None,
 ) -> pd.DataFrame:
     """
     Pairs (row in overlap_a) x (row in overlap_b): cosine between region embeddings.
-    If max_genomic_dist_bp is set: only same-chromosome pairs whose interval separation
-    (minimum gap between intervals, 0 if overlap) is <= max_genomic_dist_bp; adds column
-    genomic_dist_bp. Different chromosomes are skipped. 
-    
-    Implemented by sorting set2 by start and, per set1 interval [s1,e1], taking candidates with s2 <= e1+D and e2 >= s1-D
-    (equivalent to intersecting [s2,e2] with [s1-D,e1+D]), then batching cosine dots.
 
-    If max_genomic_dist_bp is None: full Cartesian product (all chromosome pairs).
+    If ``distance_max`` is set: only same-chromosome pairs whose interval separation
+    (the minimum unsigned gap between the two intervals, 0 if overlapping) lies in
+    ``[distance_min, distance_max]`` (bp). The separation is always non-negative, so
+    direction (upstream vs downstream of set1) is ignored. Different chromosomes are
+    skipped and the column ``genomic_dist_bp`` is added.
+
+    Implemented by sorting set2 by start and, per set1 interval [s1,e1], taking
+    candidates with s2 <= e1+distance_max and e2 >= s1-distance_max, then batching
+    cosine dots and applying the lower bound ``distance_min``.
+
+    If ``distance_max`` is None: full Cartesian product (all chromosome pairs);
+    ``distance_min`` is ignored.
+
+    ``max_genomic_dist_bp`` is a deprecated alias of ``distance_max`` (with
+    ``distance_min=0``); kept for backward compatibility.
     """
+    if max_genomic_dist_bp is not None and distance_max is None:
+        distance_max = int(max_genomic_dist_bp)
+        distance_min = 0
+
+    if distance_max is not None:
+        distance_min = int(abs(distance_min))
+        distance_max = int(abs(distance_max))
+        if distance_min > distance_max:
+            raise ValueError(
+                f"distance_min ({distance_min}) must be <= distance_max ({distance_max})."
+            )
+
     oa = overlap_a.reset_index(drop=True)
     ob = overlap_b.reset_index(drop=True)
     union_idx = np.asarray(union_idx, dtype=np.int64)
@@ -482,7 +526,7 @@ def cross_region_set_cosine_pairs(
     E2 = union_emb[p2].astype(np.float64)
     E1n = E1 / (np.linalg.norm(E1, axis=1, keepdims=True) + eps)
     E2n = E2 / (np.linalg.norm(E2, axis=1, keepdims=True) + eps)
-    if max_genomic_dist_bp is None:
+    if distance_max is None:
         cos_mat = (E1n @ E2n.T).astype(np.float32)
         n1, n2 = cos_mat.shape
         ri, cj = np.meshgrid(np.arange(n1), np.arange(n2), indexing="ij")
@@ -502,9 +546,13 @@ def cross_region_set_cosine_pairs(
             }
         )
 
-    # Same-chrom pairs with sep <= D: equivalent to [s2,e2] intersecting [s1-D, e1+D].
-    # Sort set2 by start; for each interval in set1 use searchsorted + end filter (like EP path).
-    D = int(max_genomic_dist_bp)
+    # Same-chrom pairs with distance_min <= sep <= distance_max:
+    # sep >= 0 by construction (min unsigned gap), so the direction (upstream/downstream)
+    # of set2 relative to set1 doesn't matter. Sort set2 by start; for each interval in
+    # set1 use searchsorted + end filter (candidates are [s2,e2] intersecting
+    # [s1-Dmax, e1+Dmax]); apply the lower bound after computing sep.
+    Dmax = int(distance_max)
+    Dmin = int(distance_min)
     c1 = oa["chrom"].astype(np.int64).to_numpy()
     s1a = oa["start"].astype(np.int64).to_numpy()
     e1a = oa["end"].astype(np.int64).to_numpy()
@@ -532,8 +580,8 @@ def cross_region_set_cosine_pairs(
         idx_a = np.flatnonzero(c1 == chrom)
         for i in idx_a:
             s1, e1 = int(s1a[i]), int(e1a[i])
-            L = s1 - D
-            R = e1 + D
+            L = s1 - Dmax
+            R = e1 + Dmax
             j_end = int(np.searchsorted(Sb, R, side="right"))
             if j_end == 0:
                 continue
@@ -552,10 +600,15 @@ def cross_region_set_cosine_pairs(
             sep[right] = Sbb[right] - e1
             sep[left] = s1 - Ebb[left]
 
+            keep = (sep >= Dmin) & (sep <= Dmax)
+            if not keep.any():
+                continue
+
             cos_batch = (E2s[sel] @ E1n[i]).astype(np.float32)
             ch_out = oa["chrom"].iloc[int(i)]
 
-            for k in range(sel.size):
+            kept_idx = np.nonzero(keep)[0]
+            for k in kept_idx:
                 rows.append(
                     {
                         "set1_chrom": ch_out,
