@@ -10,9 +10,8 @@
 
 ## 1. Installation
 
-ChromBERT-tools is implemented in Python and requires Python 3.9 or above. It uses FlashAttention 2 for efficient model computation. When installed from source, users need to set up the required environment.
-
-The official Apptainer image is the easiest installation option and already includes ChromBERT-tools and its software dependencies.
+ChromBERT-tools is implemented in Python and requires Python 3.9 or above. It uses FlashAttention 2 for efficient model computation.
+We provide two installation options.
 
 ### Option 1: Install with an Apptainer image (recommended)
 ```bash
@@ -58,8 +57,9 @@ wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.4.3.post1
 pip install /path/to/flash_attn-*.whl  # Replace this with your downloaded wheel file.
 ```
 
+
 ## 2. Download required resources
-### Use the Apptainer image (recommended)
+### Use the Apptainer image
 ```bash
 # Download ChromBERT pre-trained model files to ~/.cache/chrombert/data.
 apptainer exec /path/to/chrombert-tools.sif download-data --genome hg38 --resolution 1kb
@@ -92,24 +92,32 @@ apptainer exec --nv /path/to/chrombert-tools.sif jupyter-notebook # start Jupyte
 ```
 For detailed usage, please check the documentation: [chrombert-tools.readthedocs.io](https://chrombert-tools.readthedocs.io/en/latest/).
 #### 1) Generation of context-specific regulatory representations
-- [embed_region](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_region.html): Extract embeddings for specified genomic regions or promoter-centered gene regions
-- [embed_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_regulator.html): Extract regulator embeddings for specified regulators and genomic regions
+| Command | Description | Tutorials |
+|---|---|---|
+| [embed_region](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_region.html) | Extract embeddings for specified genomic regions or promoter-centered gene regions | [CLI](examples/cli/embed_region.ipynb), [API](examples/api/embed_region.ipynb) |
+| [embed_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_regulator.html) | Extract regulator embeddings for specified regulators across specified genomic regions | [CLI](examples/cli/embed_regulator.ipynb), [API](examples/api/embed_regulator.ipynb) |
 
 #### 2) Predictive modeling of context-specific regulatory representations
-- [region_function_classification](https://chrombert-tools.readthedocs.io/en/latest/commands/region_function_classification.html): Classify functional classes of genomic regions
-- [region_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/region_activity_regression.html): Predict region-level activities such as cell-type-specific accessibility or accessibility fold change between two cell states
-- [gene_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/gene_activity_regression.html): Predict gene expression levels or expression fold changes between two cell states using TSS-centered representations that incorporate the promoter region together with upstream and downstream flanking regions. 
+| Command | Description | Tutorials |
+|---|---|---|
+| [region_function_classification](https://chrombert-tools.readthedocs.io/en/latest/commands/region_function_classification.html) | Classify genomic regions into functional classes | [CLI](examples/cli/region_function_classification.ipynb), [API](examples/api/region_function_classification.ipynb) |
+| [region_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/region_activity_regression.html) | Predict quantitative region activity, such as accessibility or activity fold change | [CLI](examples/cli/region_activity_regression.ipynb), [API](examples/api/region_activity_regression.ipynb) |
+| [gene_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/gene_activity_regression.html) | Predict gene expression or expression fold change from TSS-centered regulatory context | [CLI](examples/cli/gene_activity_regression.ipynb), [API](examples/api/gene_activity_regression.ipynb) |
 
 #### 3) Interpretation of context-specific regulatory representations
-- [interpret_region_region_interactions](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_region_region_interactions.html): Identify genomic regions with similar regulatory properties and potential functional interactions
-- [interpret_regulator_regulator_interactions](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_regulator_regulator_interactions.html): Identify transcription regulators with similar or potentially cooperative regulatory roles
-- [interpret_regulator_effects_between_region_groups](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_regulator_effects_between_region_groups.html): Identify the most important transcription regulators across two groups of regions with distinct regulatory activities
+| Command | Description | Examples |
+|---|---|---|
+| [interpret_region_region_interactions](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_region_region_interactions.html) | Identify functionally similar genomic regions | [CLI](examples/cli/interpret_region_region_interactions.ipynb), [API](examples/api/interpret_region_region_interactions.ipynb) |
+| [interpret_regulator_regulator_interactions](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_regulator_regulator_interactions.html) | Identify potentially cooperative regulators | [CLI](examples/cli/interpret_regulator_regulator_interactions.ipynb), [API](examples/api/interpret_regulator_regulator_interactions.ipynb) |
+| [interpret_regulator_effects_between_region_groups](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_regulator_effects_between_region_groups.html) | Compare regulator effects between region groups | [CLI](examples/cli/interpret_regulator_effects_between_region_groups.ipynb), [API](examples/api/interpret_regulator_effects_between_region_groups.ipynb) |
 
 #### End-to-end application commands
-- [predict_cell_type_master_regulators](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_cell_type_master_regulators.html): Infer cell-type-specific key regulators
-- [predict_transition_driver_regulators](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_transition_driver_regulators.html): Find driver factors in cell-state transitions
-- [predict_regulator_context_cofactors](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_regulator_context_cofactors.html): Find context-specific cofactors in different regions  
-- [predict_tf_binding_regions](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_tf_binding_regions.html): Impute cistrome data on specified regions 
+| Command | Description | Examples |
+|---|---|---|
+| [predict_cell_type_master_regulators](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_cell_type_master_regulators.html) | Infer cell-type-specific key regulators | [CLI](examples/cli/predict_cell_type_master_regulators.ipynb)|
+| [predict_transition_driver_regulators](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_transition_driver_regulators.html) | Identify driver regulators in cell-state transitions | [CLI](examples/cli/predict_transition_driver_regulators.ipynb)|
+| [predict_regulator_context_cofactors](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_regulator_context_cofactors.html) | Identify context-specific cofactors | [CLI](examples/cli/predict_regulator_context_cofactors.ipynb)|
+| [predict_tf_binding_regions](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_tf_binding_regions.html) | Predict TF-binding regions | [CLI](examples/cli/predict_tf_binding_regions.ipynb), [API](examples/api/predict_tf_binding_regions.ipynb) |
 
 
 ### ChromBERT-tools API
