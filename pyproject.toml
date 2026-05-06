@@ -13,10 +13,29 @@ dependencies = [
     "nxviz",
     "pybbi",
     "bioframe",
+    "jupyter",
+    "pyfaidx",
+    "ninja",
+    "packaging",
+    "torch",
+    "numpy",
+    "pandas",
+    "matplotlib",
+    "torchinfo",
+    "h5py",
+    "lightning >= 2.0.0",
+    "transformers == 4.28.1",
+    "huggingface_hub[cli]",
+    "pyarrow",
+    "torchvision",
+    "tensorboard",
+    "scikit-learn",
+    "pyBigWig"
 ]
 
 [project.scripts]
 chrombert-tools = "chrombert_tools.cli:cli"
+download-data = "chrombert_hf.download_data:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
