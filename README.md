@@ -4,7 +4,7 @@
 
 > **ChromBERT-tools** is a lightweight toolkit built upon ChromBERT that operationalizes context-specific regulatory representations for user data through modular command-line interfaces and Python APIs organized into three functional layers: representation generation, predictive modeling, and regulatory interpretation.
 
-![ChromBERT-tools Framework](docs/_static/figure1.png "Framework")
+![ChromBERT-tools Framework](docs/_static/figure1_new.png)
 
 ---
 
