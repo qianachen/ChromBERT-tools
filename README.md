@@ -19,6 +19,7 @@ We provide two installation options.
 conda install -c conda-forge apptainer
 # Pull the official image.
 apptainer pull chrombert-tools.sif oras://docker.io/chenqianqian515/chrombert-tools:20260505
+# Check installation.
 apptainer exec /path/to/chrombert-tools.sif chrombert-tools -h
 ```
 Optional: If `apptainer pull` fails, download the image from the Google Drive link instead: [chrombert-tools](https://drive.google.com/file/d/14I-BQxrBNPwdZn-TKaG0Z8lpNiJlUd1f/view?usp=drive_link)
@@ -44,6 +45,7 @@ pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 --index-url https
 pip install "flash-attn==2.4.*" --no-build-isolation
 # Install bedtools
 conda install -c conda-forge -c bioconda bedtools
+# Install ChromBERT-tools and ChromBERT.
 git clone https://github.com/TongjiZhanglab/ChromBERT-tools.git
 cd ChromBERT-tools
 pip install .
@@ -82,15 +84,15 @@ ChromBERT-tools supports two ways to run:
 - **Command-line interface (CLI)** — run from a terminal (bash commands)
 - **Python API** — call functions in Python code
 
+For usage examples, see the Jupyter notebooks in [`examples/cli/`](examples/cli/) and [`examples/api/`](examples/api/).
 
-### ChromBERT-tools CLI
-For usage examples, see the Jupyter notebooks in [`examples/cli/`](examples/cli/).
 You can run the examples with Jupyter Notebook:
 ```bash
 cd ChromBERT-tools/examples/
 apptainer exec --nv /path/to/chrombert-tools.sif jupyter-notebook # start Jupyter Notebook with GPU support
 ```
 For detailed usage, please check the documentation: [chrombert-tools.readthedocs.io](https://chrombert-tools.readthedocs.io/en/latest/).
+
 #### 1) Generation of context-specific regulatory representations
 | Command | Description | Tutorials |
 |---|---|---|
@@ -105,39 +107,19 @@ For detailed usage, please check the documentation: [chrombert-tools.readthedocs
 | [gene_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/gene_activity_regression.html) | Predict gene expression or expression fold change from TSS-centered regulatory context | [CLI](examples/cli/gene_activity_regression.ipynb), [API](examples/api/gene_activity_regression.ipynb) |
 
 #### 3) Interpretation of context-specific regulatory representations
-| Command | Description | Examples |
+| Command | Description | Tutorials |
 |---|---|---|
 | [interpret_region_region_interactions](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_region_region_interactions.html) | Identify functionally similar genomic regions | [CLI](examples/cli/interpret_region_region_interactions.ipynb), [API](examples/api/interpret_region_region_interactions.ipynb) |
 | [interpret_regulator_regulator_interactions](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_regulator_regulator_interactions.html) | Identify potentially cooperative regulators | [CLI](examples/cli/interpret_regulator_regulator_interactions.ipynb), [API](examples/api/interpret_regulator_regulator_interactions.ipynb) |
 | [interpret_regulator_effects_between_region_groups](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_regulator_effects_between_region_groups.html) | Compare regulator effects between region groups | [CLI](examples/cli/interpret_regulator_effects_between_region_groups.ipynb), [API](examples/api/interpret_regulator_effects_between_region_groups.ipynb) |
 
 #### End-to-end application commands
-| Command | Description | Examples |
+| Command | Description | Tutorials |
 |---|---|---|
 | [predict_cell_type_master_regulators](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_cell_type_master_regulators.html) | Infer cell-type-specific key regulators | [CLI](examples/cli/predict_cell_type_master_regulators.ipynb)|
 | [predict_transition_driver_regulators](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_transition_driver_regulators.html) | Identify driver regulators in cell-state transitions | [CLI](examples/cli/predict_transition_driver_regulators.ipynb)|
 | [predict_regulator_context_cofactors](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_regulator_context_cofactors.html) | Identify context-specific cofactors | [CLI](examples/cli/predict_regulator_context_cofactors.ipynb)|
 | [predict_tf_binding_regions](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_tf_binding_regions.html) | Predict TF-binding regions | [CLI](examples/cli/predict_tf_binding_regions.ipynb), [API](examples/api/predict_tf_binding_regions.ipynb) |
-
-
-### ChromBERT-tools API
-
-In addition to CLI commands, you can now call ChromBERT-tools directly in Python. 
-
-```python
-from chrombert_tools import (
-    embed_region,
-    embed_regulator,
-    predict_tf_binding_regions,
-    region_function_classification,
-    region_activity_regression,
-    gene_activity_regression,
-    interpret_regulator_regulator_interactions,
-    interpret_region_region_interactions,
-    interpret_regulator_effects_between_region_groups,
-)
-```
-For detailed usage examples, see the Jupyter notebooks in [`examples/api/`](examples/api/).
 
 ## Contact us
 If you have any questions or suggestions, please feel free to contact us at [2211083@tongji.edu.cn](mailto:2211083@tongji.edu.cn).
