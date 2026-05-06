@@ -16,3 +16,8 @@ chrombert_hf/*.ipynb
 chrombert_hf/tmp
 chrombert_hf/dataset_*
 chrombert_tools_old/*
+examples_old/*
+examples/data/myoblast_ENCFF*
+examples/api/interpretation_important_factor_effect_ezh2*
+examples/api/max*
+examples/api/tmp_tmp
