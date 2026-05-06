@@ -7,7 +7,7 @@ Quantify **region-region embedding similarity** (enhancer-promoter style with ge
 Overview
 ========
 
-With a single ``--region`` BED, the command pools embeddings for overlapping ChromBERT bins and gene TSS windows, then reports cosine similarities within a genomic distance window (default 250 kb). With ``--region2``, it compares two region sets on the same chromosome within ``--distance-window``.
+With a single ``--region`` BED, the command pools embeddings for overlapping ChromBERT bins and gene TSS windows, then reports cosine similarities for pairs whose absolute genomic distance falls in ``[--distance-min, --distance-max]`` (default 0–250 kb; direction is ignored). With ``--region2``, it compares two region sets on the same chromosome within the same absolute distance range.
 
 Basic Usage
 ===========
@@ -41,8 +41,12 @@ Parameters (summary)
 ``--region2``
    Optional second BED; if set, outputs ``region_set_pairs_cos.tsv`` instead of TSS-focused pairs.
 
-``--distance-window``
-   Max separation in bp (same chromosome; cross-chrom dropped).
+``--distance-min`` / ``--distance-max``
+   Absolute genomic separation range (bp, both ``>=0``) for kept pairs. A pair's
+   unsigned interval gap (or ``|TSS - distal|`` in EP mode) must satisfy
+   ``--distance-min <= gap <= --distance-max``; direction (upstream vs downstream)
+   is ignored, and cross-chromosome pairs are always dropped. Defaults: ``0`` and
+   ``250000``.
 
 ``--ft-ckpt``, ``--gep``, ``--flank-window``, ``--ignore-regulator``, ``--model-config``, ``--data-config``
    Optional fine-tuning / GEP / JSON configs (see ``-h``).
