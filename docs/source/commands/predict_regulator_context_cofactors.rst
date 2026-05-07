@@ -117,7 +117,7 @@ Focal regulator
 ---------------
 
 ``--dual-regulator`` *(string, required)*
-   Regulator or regulators of interest, separated by semicolons. For example:
+   Regulators of interest, separated by semicolons. For example:
 
    ``"EZH2;BRD4"``
 

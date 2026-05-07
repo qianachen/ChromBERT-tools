@@ -2,8 +2,7 @@
 gene_activity_regression
 ========================
 
-Fine-tune a ChromBERT gene activity regression model from TPM expression tables, or use an
-existing checkpoint to predict gene activity.
+Fine-tune a ChromBERT gene activity regression model using TPM expression tables, or use an existing checkpoint to predict gene activity from TSS-centered representations that include the promoter region and upstream/downstream flanking regions.
 
 The command supports two prediction targets:
 
