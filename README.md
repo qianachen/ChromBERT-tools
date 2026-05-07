@@ -93,27 +93,30 @@ apptainer exec --nv /path/to/chrombert-tools.sif jupyter-notebook # start Jupyte
 ```
 For detailed usage, please check the documentation: [chrombert-tools.readthedocs.io](https://chrombert-tools.readthedocs.io/en/latest/).
 
-#### 1) Generation of context-specific regulatory representations
+### 1) Generation of context-specific regulatory representations
 | Command | Description | Tutorials |
 |---|---|---|
 | [embed_region](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_region.html) | Extract embeddings for specified genomic regions or promoter-centered gene regions | [CLI](examples/cli/embed_region.ipynb), [API](examples/api/embed_region.ipynb) |
 | [embed_regulator](https://chrombert-tools.readthedocs.io/en/latest/commands/embed_regulator.html) | Extract regulator embeddings for specified regulators across specified genomic regions | [CLI](examples/cli/embed_regulator.ipynb), [API](examples/api/embed_regulator.ipynb) |
 
-#### 2) Predictive modeling of context-specific regulatory representations
+### 2) Predictive modeling of context-specific regulatory representations
 | Command | Description | Tutorials |
 |---|---|---|
-| [region_function_classification](https://chrombert-tools.readthedocs.io/en/latest/commands/region_function_classification.html) | Classify genomic regions into functional classes | [CLI](examples/cli/region_function_classification.ipynb), [API](examples/api/region_function_classification.ipynb) |
-| [region_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/region_activity_regression.html) | Predict quantitative region activity, such as accessibility or activity fold change | [CLI](examples/cli/region_activity_regression.ipynb), [API](examples/api/region_activity_regression.ipynb) |
-| [gene_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/gene_activity_regression.html) | Predict gene expression or expression fold change from TSS-centered regulatory context | [CLI](examples/cli/gene_activity_regression.ipynb), [API](examples/api/gene_activity_regression.ipynb) |
+| [region_function_classification](https://chrombert-tools.readthedocs.io/en/latest/commands/region_function_classification.html) | Classify genomic regions into functional classes | [API](examples/api/region_function_classification.ipynb) |
+| [region_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/region_activity_regression.html) | Predict quantitative region activity, such as accessibility or activity fold change | [API](examples/api/region_activity_regression.ipynb) |
+| [gene_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/gene_activity_regression.html) | Predict gene expression or expression fold change from TSS-centered regulatory context | [API](examples/api/gene_activity_regression.ipynb) |
 
-#### 3) Interpretation of context-specific regulatory representations
+### 3) Interpretation of context-specific regulatory representations
 | Command | Description | Tutorials |
 |---|---|---|
 | [interpret_region_region_interactions](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_region_region_interactions.html) | Identify functionally similar genomic regions | [CLI](examples/cli/interpret_region_region_interactions.ipynb), [API](examples/api/interpret_region_region_interactions.ipynb) |
 | [interpret_regulator_regulator_interactions](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_regulator_regulator_interactions.html) | Identify potentially cooperative regulators | [CLI](examples/cli/interpret_regulator_regulator_interactions.ipynb), [API](examples/api/interpret_regulator_regulator_interactions.ipynb) |
 | [interpret_regulator_effects_between_region_groups](https://chrombert-tools.readthedocs.io/en/latest/commands/interpret_regulator_effects_between_region_groups.html) | Compare regulator effects between region groups | [CLI](examples/cli/interpret_regulator_effects_between_region_groups.ipynb), [API](examples/api/interpret_regulator_effects_between_region_groups.ipynb) |
 
-#### End-to-end application commands
+### Integrated module workflow
+We provide an integrated workflow that combines the above commands to infer cell-type-specific enhancer–promoter interactions: [infer cell-type-specific enhancer–promoter interactions](examples/api/infer_cell_type_specific_ep_interactions.ipynb).
+
+### End-to-end application commands
 | Command | Description | Tutorials |
 |---|---|---|
 | [predict_cell_type_master_regulators](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_cell_type_master_regulators.html) | Infer cell-type-specific key regulators | [CLI](examples/cli/predict_cell_type_master_regulators.ipynb)|
