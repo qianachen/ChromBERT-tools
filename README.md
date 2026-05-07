@@ -102,9 +102,9 @@ For detailed usage, please check the documentation: [chrombert-tools.readthedocs
 ### 2) Predictive modeling of context-specific regulatory representations
 | Command | Description | Tutorials |
 |---|---|---|
-| [region_function_classification](https://chrombert-tools.readthedocs.io/en/latest/commands/region_function_classification.html) | Classify genomic regions into functional classes | [API](examples/api/region_function_classification.ipynb) |
-| [region_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/region_activity_regression.html) | Predict quantitative region activity, such as accessibility or activity fold change | [API](examples/api/region_activity_regression.ipynb) |
-| [gene_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/gene_activity_regression.html) | Predict gene expression or expression fold change from TSS-centered regulatory context | [API](examples/api/gene_activity_regression.ipynb) |
+| [region_function_classification](https://chrombert-tools.readthedocs.io/en/latest/commands/region_function_classification.html) | Classify genomic regions into functional classes |  [CLI](examples/cli/region_function_classification.ipynb), [API](examples/api/region_function_classification.ipynb) |
+| [region_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/region_activity_regression.html) | Predict quantitative region activity, such as accessibility or activity fold change | [CLI](examples/cli/region_activity_regression.ipynb), [API](examples/api/region_activity_regression.ipynb) |
+| [gene_activity_regression](https://chrombert-tools.readthedocs.io/en/latest/commands/gene_activity_regression.html) | Predict gene expression or expression fold change from TSS-centered regulatory context | [CLI](examples/cli/gene_activity_regression.ipynb), [API](examples/api/gene_activity_regression.ipynb) |
 
 ### 3) Interpretation of context-specific regulatory representations
 | Command | Description | Tutorials |

@@ -2,35 +2,45 @@
 Installation
 ============
 
-ChromBERT-tools is implemented in Python and requires **Python 3.9 or above**. It uses
-**FlashAttention 2** for efficient model computation. Two installation options are supported:
+ChromBERT-tools is implemented in Python and requires **Python 3.9 or above**.
+It uses **FlashAttention 2** for efficient model computation.
 
-1. **Install with an Apptainer image (recommended)** — the official image already includes
-   ChromBERT-tools and all runtime dependencies.
-2. **Install from source** — for development or when running directly on the host.
+Two installation options are available:
 
-After installation, you must :ref:`download the ChromBERT pre-trained model and annotation
-files <download-resources>` before running any subcommand.
+* **Apptainer image (recommended)** — the official image already includes
+  ChromBERT-tools and all runtime dependencies.
+* **Source installation** — recommended for development or for running directly
+  on the host system.
+
+After installation, you must also :ref:`download the required ChromBERT model and
+annotation files <download-resources>` before running any subcommand.
 
 
-Option 1: Install with an Apptainer image (recommended)
-=======================================================
+Installation options
+====================
+
+Option 1: Apptainer image (recommended)
+---------------------------------------
+
+This is the recommended installation method. The Apptainer image provides a
+ready-to-use environment with ChromBERT-tools and its dependencies already installed.
 
 Install Apptainer
------------------
+^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
    conda install -c conda-forge apptainer
 
 Pull the official image
------------------------
+^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
    apptainer pull chrombert-tools.sif oras://docker.io/chenqianqian515/chrombert-tools:20260505
 
-Check the installation:
+Check the installation
+^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
@@ -41,11 +51,12 @@ Check the installation:
    If ``apptainer pull`` fails, you can download the image from Google Drive instead:
    `chrombert-tools.sif <https://drive.google.com/file/d/14I-BQxrBNPwdZn-TKaG0Z8lpNiJlUd1f/view?usp=drive_link>`_.
 
-(Optional) Update the Apptainer image
--------------------------------------
+Optional: update or rebuild the image
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If you need to add new packages or update existing ones, edit ``edit_image.def`` and rebuild
-the image. The example below rebuilds the image with the latest ChromBERT-tools:
+If you need to add packages or update existing ones, edit ``edit_image.def`` and
+rebuild the image. The example below rebuilds the image with the latest
+ChromBERT-tools source code:
 
 .. code-block:: bash
 
@@ -55,45 +66,74 @@ the image. The example below rebuilds the image with the latest ChromBERT-tools:
 
 
 Option 2: Install from source
-=============================
+-----------------------------
 
-Create a conda environment and install PyTorch (< 2.4) with a CUDA build that matches your
-system, then install FlashAttention 2, bedtools, and ChromBERT-tools.
+Source installation is useful for development or for users who want to run
+ChromBERT-tools directly on the host system.
+
+Create a conda environment
+^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 .. code-block:: bash
 
-   # Create and activate a conda environment.
    conda create -n ChromBERT python=3.9 -y
    conda activate ChromBERT
 
-   # Install PyTorch (< 2.4) with a CUDA version compatible with your system.
-   # Example for CUDA 12.1:
+Install PyTorch
+^^^^^^^^^^^^^^^
+
+Install PyTorch with a CUDA version compatible with your system. ChromBERT-tools
+requires PyTorch **< 2.4**.
+
+Example for CUDA 12.1:
+
+.. code-block:: bash
+
    pip install torch==2.2.2 torchvision==0.17.2 torchaudio==2.2.2 \
        --index-url https://download.pytorch.org/whl/cu121
 
-   # Install FlashAttention 2.
+Install FlashAttention 2
+^^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
    pip install "flash-attn==2.4.*" --no-build-isolation
 
-   # Install bedtools.
+Install bedtools
+^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
    conda install -c conda-forge -c bioconda bedtools
+
+Install ChromBERT-tools
+^^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
 
    git clone https://github.com/TongjiZhanglab/ChromBERT-tools.git
    cd ChromBERT-tools
    pip install .
 
-   # Check the installation.
+Check the installation
+^^^^^^^^^^^^^^^^^^^^^^
+
+.. code-block:: bash
+
    chrombert-tools -h
 
-(Optional) Use a pre-built FlashAttention 2 wheel
--------------------------------------------------
+Optional: use a pre-built FlashAttention 2 wheel
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-If building ``flash-attn`` from source fails, download a pre-built wheel that matches your
-Python, PyTorch, CUDA, and Linux environment, then install it directly:
+If building ``flash-attn`` from source fails, you can install a pre-built wheel
+that matches your Python, PyTorch, CUDA, and Linux environment.
+
+Example:
 
 .. code-block:: bash
 
    wget https://github.com/Dao-AILab/flash-attention/releases/download/v2.4.3.post1/flash_attn-2.4.3.post1+cu122torch2.2cxx11abiFALSE-cp39-cp39-linux_x86_64.whl
-   pip install /path/to/flash_attn-*.whl  # Replace with your downloaded wheel.
+   pip install /path/to/flash_attn-*.whl
 
 
 .. _download-resources:
@@ -101,16 +141,18 @@ Python, PyTorch, CUDA, and Linux environment, then install it directly:
 Download required resources
 ===========================
 
-ChromBERT requires pre-trained model files and annotation data. These are downloaded into
-``~/.cache/chrombert/data`` by the ``download-data`` command.
+ChromBERT-tools requires ChromBERT pre-trained model files and annotation data.
+These files are downloaded into ``~/.cache/chrombert/data`` using the
+``download-data`` command.
 
-Supported genomes and resolutions:
+Supported genomes and resolutions
+---------------------------------
 
-* **hg38** (Human): 200bp, 1kb, 2kb, 4kb
-* **mm10** (Mouse): 1kb
+* **hg38** human: 200bp, 1kb, 2kb, 4kb
+* **mm10** mouse: 1kb
 
-With the Apptainer image
-------------------------
+Download resources with the Apptainer image
+-------------------------------------------
 
 .. code-block:: bash
 
@@ -122,10 +164,11 @@ If Hugging Face is slow or unreachable, specify a mirror endpoint:
 .. code-block:: bash
 
    apptainer exec /path/to/chrombert-tools.sif download-data \
-       --genome hg38 --resolution 1kb --hf-endpoint <Hugging Face endpoint>
+       --genome hg38 --resolution 1kb \
+       --hf-endpoint <Hugging Face endpoint>
 
-With a source install
----------------------
+Download resources with a source installation
+---------------------------------------------
 
 .. code-block:: bash
 
@@ -136,11 +179,12 @@ Or with a Hugging Face mirror:
 
 .. code-block:: bash
 
-   download-data --genome hg38 --resolution 1kb --hf-endpoint <Hugging Face endpoint>
+   download-data --genome hg38 --resolution 1kb \
+       --hf-endpoint <Hugging Face endpoint>
 
 
-Next Steps
+Next steps
 ==========
 
-Once installation and resource download are complete, head to :doc:`usage` to learn how to
-run each ``chrombert-tools`` subcommand from the CLI or call the Python API.
+After installation and resource download, see :doc:`usage` for the full list of
+available ``chrombert-tools`` subcommands and tutorials.
