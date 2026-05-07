@@ -55,7 +55,7 @@ def run(args):
     emb_odir = f"{odir}/emb"; os.makedirs(emb_odir, exist_ok=True)
 
     print("Step 1/3: Building or loading a cell-specific model...")
-    model_emb, _ = build_cell_model_emb(args, files_dict, odir)
+    model_emb, _, model_ckpt = build_cell_model_emb(args, files_dict, odir)
 
     print("Step 2/3: Preparing region groups for interpretation...")
     data_config, _ = build_interpret_config(
@@ -71,12 +71,13 @@ def run(args):
     if args.ft_ckpt is not None:
         print(f"Checkpoint used for interpretation: {args.ft_ckpt}")
     else:
-        ckpts = glob.glob(f"{train_odir}/**/checkpoints/*.ckpt", recursive=True)
-        if not ckpts:
-            raise FileNotFoundError(
-                f"No checkpoint found under {train_odir}/**/checkpoints/*.ckpt after training."
-            )
-        ft_ckpt = os.path.abspath(max(ckpts, key=os.path.getmtime))
+        # ckpts = glob.glob(f"{train_odir}/**/checkpoints/*.ckpt", recursive=True)
+        # if not ckpts:
+        #     raise FileNotFoundError(
+        #         f"No checkpoint found under {train_odir}/**/checkpoints/*.ckpt after training."
+        #     )
+        # ft_ckpt = os.path.abspath(max(ckpts, key=os.path.getmtime))
+        ft_ckpt = model_ckpt
         print(f"Checkpoint used for interpretation: {ft_ckpt}")
 
     print(f"Ranked regulators saved to: {results_odir}/factor_importance_rank.csv")
@@ -180,13 +181,13 @@ def run(args):
     help="Path to a model configuration file.",
 )
 @click.option(
-    "--region-config",
-    "region_config",
+    "--data-config",
+    "data_config",
     type=click.Path(exists=True, dir_okay=False, readable=True),
     required=False,
     default=None,
     show_default=True,
-    help="Path to a region configuration file.",
+    help="Path to a data configuration file.",
 )
 def predict_cell_type_master_regulators(
     cell_type_bw,
@@ -199,7 +200,7 @@ def predict_cell_type_master_regulators(
     genome,
     resolution,
     model_config,
-    region_config,
+    data_config,
 ):
     """
     Find candidate key regulators for a target cell type or between two region sets.
@@ -227,7 +228,7 @@ def predict_cell_type_master_regulators(
         batch_size=batch_size,
         chrombert_cache_dir=chrombert_cache_dir,
         model_config=model_config,
-        region_config=region_config,
+        data_config=data_config,
     )
     run(args)
 

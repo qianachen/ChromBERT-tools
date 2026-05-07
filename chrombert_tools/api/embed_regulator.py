@@ -91,7 +91,7 @@ def embed_regulator(
         return_embeddings:
             If ``True``, fill ``regulator_means``, ``regulator_emb_dict``, and
             ``overlap_region_bed`` in the result. If ``False``, those fields are
-            ``None``; output file paths are still set.
+            ``None``; output files are still written to ``odir``.
 
     Returns:
         :class:`~chrombert_tools.cli.embed_run_result.ChrombertEmbedRegulatorRunResult`.
@@ -135,9 +135,12 @@ def embed_regulator(
     cell_mode = is_cell_specific(args)
 
     out = _cli_run(args, return_data=return_embeddings)
-    regulator_means = regulator_emb_dict = regions = None
+    regulator_means = regulator_emb_dict = regions = model_ckpt = None
     if return_embeddings and out is not None:
-        regulator_means, regulator_emb_dict, regions = out
+        if cell_mode:
+            regulator_means, regulator_emb_dict, regions, model_ckpt = out
+        else:
+            regulator_means, regulator_emb_dict, regions = out
 
 
     odir_abs = os.path.abspath(odir)
@@ -145,7 +148,7 @@ def embed_regulator(
         regulator_means=regulator_means,
         regulator_emb_dict=regulator_emb_dict,
         overlap_region_bed=regions,
-        ft_ckpt=ft_ckpt,
+        model_ckpt=model_ckpt,
         train_output_dir=os.path.join(odir_abs, "train") if cell_mode else None,
 
     )

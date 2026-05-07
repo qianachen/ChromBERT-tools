@@ -114,13 +114,13 @@ def run_region_general(args, files_dict, odir, return_data=False,model_emb=None)
         return region_embs, overlap_bed
 
 
-def run_region_cell(args, files_dict, odir, return_data=False, model_emb=None):
+def run_region_cell(args, files_dict, odir, return_data=False, model_emb=None, model_ckpt=None):
     focus_region = args.region
 
     overlap_bed = check_region_file(focus_region, files_dict, odir)
 
     if model_emb is None:
-        model_emb, _ = build_cell_model_emb(args, files_dict, odir)
+        model_emb, _, model_ckpt = build_cell_model_emb(args, files_dict, odir)
 
     sup = f"{odir}/model_input.tsv"
     data_config, _ = build_model_dataset_config(
@@ -133,7 +133,7 @@ def run_region_cell(args, files_dict, odir, return_data=False, model_emb=None):
     report_region(args, odir, overlap_bed, cell_specific=True)
 
     if return_data:
-        return region_embs, overlap_bed
+        return region_embs, overlap_bed, model_ckpt
 
 
 # =========================
@@ -242,12 +242,12 @@ def run_gene_general(args, files_dict, odir, return_data=False,model_emb=None):
         return gene_emb_dict
 
 
-def run_gene_cell(args, files_dict, odir, return_data=False, model_emb=None):
+def run_gene_cell(args, files_dict, odir, return_data=False, model_emb=None, model_ckpt=None):
     info = prepare_gene_regions(args, files_dict, odir)
 
     sup = f"{odir}/model_input_gene.tsv"
     if model_emb is None:
-        model_emb, data_config = build_cell_model_emb(args, files_dict, odir)
+        model_emb, data_config, model_ckpt = build_cell_model_emb(args, files_dict, odir)
     else:
         data_config, _ = build_model_dataset_config(
             args, files_dict, supervised_file_for_ignore_idx=sup
@@ -267,7 +267,7 @@ def run_gene_cell(args, files_dict, odir, return_data=False, model_emb=None):
     report_gene(args, odir, info, cell_specific=True)
 
     if return_data:
-        return gene_emb_dict
+        return gene_emb_dict, model_ckpt
 
 # =========================
 # report
@@ -416,11 +416,11 @@ def embed_region(
     cell_mode = is_cell_specific(args)
 
     if cell_mode:
-        model_emb, _ = build_cell_model_emb(args, files_dict, odir)
+        model_emb, _, model_ckpt = build_cell_model_emb(args, files_dict, odir)
         if args.region is not None:
-            run_region_cell(args, files_dict, odir, model_emb=model_emb)
+            run_region_cell(args, files_dict, odir, model_emb=model_emb, model_ckpt=model_ckpt)
         if args.gene is not None:
-            run_gene_cell(args, files_dict, odir, model_emb=model_emb)
+            run_gene_cell(args, files_dict, odir, model_emb=model_emb, model_ckpt=model_ckpt)
     else:
         if args.region is not None:
             run_region_general(args, files_dict, odir)

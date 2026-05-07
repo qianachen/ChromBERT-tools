@@ -244,7 +244,7 @@ def run(args, return_data=False):
     pairs_cos["set2_chrom"] = int_to_chrom_series(pairs_cos["set2_chrom"], args.genome)
 
     out_tsv = os.path.join(odir, "region_set_pairs_cos.tsv")
-    pairs_cos.sort_values(by=["set1_region_index", "cos_sim"], ascending=[True, False]).reset_index(drop=True).to_csv(out_tsv, sep="\t", index=False)
+    pairs_cos.sort_values(by=["set1_build_region_index", "cos_sim"], ascending=[True, False]).reset_index(drop=True).to_csv(out_tsv, sep="\t", index=False)
     print("Finished!")
     print(
         f"Set1 x set2 region-pair cosines (same chrom, "

@@ -86,7 +86,7 @@ def run_regulator_cell(args, files_dict, odir, return_data=False):
     Generate regulator embeddings for cell-type-specific model
     '''
     overlap_bed, regulator_idx_dict = prepare_region_and_regulator(args, files_dict, odir)
-    model_emb, data_config = build_cell_model_emb(args, files_dict, odir)
+    model_emb, data_config, model_ckpt = build_cell_model_emb(args, files_dict, odir)
     sup = f"{odir}/model_input.tsv"
     ds = data_config.init_dataset(supervised_file=sup)
     dl = data_config.init_dataloader(batch_size=args.batch_size, supervised_file=sup)
@@ -95,7 +95,7 @@ def run_regulator_cell(args, files_dict, odir, return_data=False):
     )
     report_regulator(args, odir, overlap_bed, cell_specific=True)
     if return_data:
-        return reg_means, reg_emb_dict, overlap_bed
+        return reg_means, reg_emb_dict, overlap_bed, model_ckpt
 
 
 # =========================

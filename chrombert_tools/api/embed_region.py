@@ -104,14 +104,18 @@ def embed_region(
             pair when not using ``ft_ckpt``.
         return_embeddings:
             If ``True``, fill in-memory fields in the result in addition to writing files.
-            If ``False``, only write outputs; embedding fields in the result are ``None``
-            (paths are still populated for outputs that ran).
+            If ``False``, only write outputs; embedding fields in the result are
+            ``None`` while files are still written under ``odir``.
 
     Returns:
         :class:`~chrombert_tools.cli.embed_run_result.ChrombertEmbedRunResult` with
-        ``region_emb``, ``overlap_region_bed``, ``gene_emb_dict``, and absolute paths
-        to ``region_emb_{oname}.npy``, ``gene_emb_{oname}.pkl``, and model_input TSVs.
-        For the legacy triple, use :meth:`ChrombertEmbedRunResult.as_tuple`.
+        ``region_emb``, ``overlap_region_bed``, ``gene_emb_dict``, ``ft_ckpt`` (the
+        cell-specific fine-tuned checkpoint, if any), and ``train_output_dir`` (the
+        fine-tuning output directory under ``odir``, if cell-specific mode was used).
+        Files such as ``region_emb_{oname}.npy``, ``gene_emb_{oname}.pkl``,
+        ``model_input.tsv`` and ``model_input_gene.tsv`` are written to ``odir`` as a
+        side effect. For the legacy triple, use
+        :meth:`ChrombertEmbedRunResult.as_tuple`.
     """
     if chrombert_cache_dir is None:
         chrombert_cache_dir = os.path.expanduser("~/.cache/chrombert/data")
@@ -145,10 +149,10 @@ def embed_region(
     region_emb: Optional[np.ndarray] = None
     region_bed: Optional[pd.DataFrame] = None
     gene_emb_dict: Optional[Dict[str, np.ndarray]] = None
-
+    model_ckpt: Optional[str] = None
     cell_mode = is_cell_specific(args)
     if cell_mode:
-        model_emb, _ = build_cell_model_emb(args, files_dict, odir)
+        model_emb, _, model_ckpt = build_cell_model_emb(args, files_dict, odir)
         if region is not None:
             pair = run_region_cell(
                 args,
@@ -156,9 +160,10 @@ def embed_region(
                 odir,
                 return_data=return_embeddings,
                 model_emb=model_emb,
+                model_ckpt=model_ckpt,
             )
             if return_embeddings and pair is not None:
-                region_emb, region_bed = pair
+                region_emb, region_bed, model_ckpt = pair
         if gene is not None:
             gout = run_gene_cell(
                 args,
@@ -166,9 +171,10 @@ def embed_region(
                 odir,
                 return_data=return_embeddings,
                 model_emb=model_emb,
+                model_ckpt=model_ckpt,
             )
             if return_embeddings and gout is not None:
-                gene_emb_dict = gout
+                gene_emb_dict, model_ckpt = gout
     else:
         if region is not None:
             pair = run_region_general(
@@ -190,23 +196,11 @@ def embed_region(
                 gene_emb_dict = gout
 
     odir_abs = os.path.abspath(odir)
-    region_emb_path = (
-        os.path.join(odir_abs, f"region_emb_{oname}.npy") if region is not None else None
-    )
-    gene_emb_path = (
-        os.path.join(odir_abs, f"gene_emb_{oname}.pkl") if gene is not None else None
-    )
-    region_model_input_path = (
-        os.path.join(odir_abs, "model_input.tsv") if region is not None else None
-    )
-    gene_model_input_path = (
-        os.path.join(odir_abs, "model_input_gene.tsv") if gene is not None else None
-    )
 
     return ChrombertEmbedRunResult(
         region_emb=region_emb,
         overlap_region_bed=region_bed,
         gene_emb_dict=gene_emb_dict,
-        ft_ckpt=ft_ckpt,
+        model_ckpt=model_ckpt,
         train_output_dir=os.path.join(odir_abs, "train") if cell_mode else None,
     )

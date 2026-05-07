@@ -26,8 +26,8 @@ class ChrombertEmbedRunResult:
         gene_emb_dict:
             Lowercased gene key → mean-pooled 1D vector, or ``None`` if no gene run /
             no in-memory return.
-        ft_ckpt:
-            Fine-tuned checkpoint used, or ``None`` if no fine-tuning was performed.
+        model_ckpt:
+            Fine-tuned checkpoint used for cell-specific model, or ``None`` if no fine-tuning was performed.
         train_output_dir:
             Output directory for the fine-tuned model, or ``None`` if no fine-tuning was performed.
     """
@@ -35,7 +35,7 @@ class ChrombertEmbedRunResult:
     region_emb: Optional[np.ndarray]
     overlap_region_bed: Optional[pd.DataFrame]
     gene_emb_dict: Optional[Dict[str, np.ndarray]]
-    ft_ckpt: Optional[str]
+    model_ckpt: Optional[str]
     train_output_dir: Optional[str]
 
     def as_tuple(
@@ -62,8 +62,8 @@ class ChrombertEmbedRegulatorRunResult:
             Output directory for this run (absolute).
         oname:
             Basename tag for ``mean_{oname}.pkl`` and ``region_aware_{oname}.hdf5``.
-        ft_ckpt:
-            Fine-tuned checkpoint used, or ``None`` if no fine-tuning was performed.
+        model_ckpt:
+            Fine-tuned checkpoint used for cell-specific model, or ``None`` if no fine-tuning was performed.
         train_output_dir:
             Output directory for the fine-tuned model, or ``None`` if no fine-tuning was performed.
     """
@@ -71,7 +71,7 @@ class ChrombertEmbedRegulatorRunResult:
     regulator_means: Optional[Dict[str, np.ndarray]]
     regulator_emb_dict: Optional[Dict[str, np.ndarray]]
     overlap_region_bed: Optional[pd.DataFrame]
-    ft_ckpt: Optional[str]
+    model_ckpt: Optional[str]
     train_output_dir: Optional[str]
 
     def as_tuple(

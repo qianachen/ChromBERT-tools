@@ -2,6 +2,7 @@ import os
 import torch
 import numpy as np
 import pickle
+import json
 from tqdm import tqdm
 from chrombert_hf import ChromBERTFTConfig, DatasetConfig, ChromBERTConfig
 from transformers import AutoModel
@@ -179,7 +180,7 @@ def build_cell_model_emb(args, files_dict,odir):
             sup_file = f"{odir}/model_input.tsv" if args.region is not None else f"{odir}/model_input_gene.tsv"
         data_config, model_config = build_model_dataset_config(args, files_dict, supervised_file_for_ignore_idx=sup_file) # this file only used for ignore_index (init, dataset not used)
         model_emb = model_config.init_model().get_embedding_manager().cuda().bfloat16()
-        return model_emb, data_config
+        return model_emb, data_config, args.ft_ckpt
 
     # 2) no ft ckpt, train cell-specific model on the fly
     train_odir = f"{odir}/train"
@@ -193,8 +194,13 @@ def build_cell_model_emb(args, files_dict,odir):
         metcic="pearsonr",
         min_threshold=0.4,
     )
+    ### get ft ckpt from eval_performance.json
+    eval_json = os.path.join(train_odir, "eval_performance.json")
+    with open(eval_json) as f:
+        eval_performance = json.load(f)
+    ft_ckpt = eval_performance["ft_ckpt"]
     model_emb = model_tuned.get_embedding_manager().cuda().bfloat16()
-    return model_emb, data_config
+    return model_emb, data_config, ft_ckpt
 
 
 def batch_num_regions(batch: dict) -> int:
