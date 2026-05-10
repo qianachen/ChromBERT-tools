@@ -26,7 +26,7 @@ apptainer pull chrombert-tools.sif oras://docker.io/chenqianqian515/chrombert-to
 # Check installation.
 apptainer exec /path/to/chrombert-tools.sif chrombert-tools -h
 ```
-Optional: If `apptainer pull` fails, download the image from the Google Drive link instead: [chrombert-tools](https://drive.google.com/file/d/14I-BQxrBNPwdZn-TKaG0Z8lpNiJlUd1f/view?usp=drive_link)
+Optional: If `apptainer pull` fails, download the image from the Google Drive link instead: [chrombert-tools](https://drive.google.com/file/d/1rrQYqVyCPkOqAOOl6k-8i3AX7N2vHU5m/view?usp=sharing)
 
 #### Optional: Update the Apptainer image
 If you need to add new packages or update existing ones, edit edit_image.def and rebuild the image.
