@@ -155,6 +155,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
     Returns:
         data_module, model_config
     """
+    lite = getattr(args, "lite", False)
     data_config, data_module, ignore, ignore_index = init_datamodule(
         d_odir, args, files_dict, ignore_object, task
     )
@@ -163,7 +164,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
     if files_dict["pretrain_ckpt"] is not None and os.path.exists(files_dict["pretrain_ckpt"]) and os.path.exists(files_dict["mtx_mask"]):
         pretrained_model_name_or_path = None
     else:
-        pretrained_model_name_or_path = get_model_name(args.genome, args.resolution)
+        pretrained_model_name_or_path = get_model_name(args.genome, args.resolution, lite)
     if task == "gep":
         fw = int(getattr(args, "flank_window", 4))
         model_config = ChromBERTFTConfig(
@@ -173,6 +174,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
             gep_flank_window=fw,
+            lite=lite,
         )
     else:
         model_config = ChromBERTFTConfig(
@@ -184,6 +186,7 @@ def model_train(d_odir, train_odir, args, files_dict, train_kind='regression',
             ignore=ignore,
             ignore_index=ignore_index,
             dim_output=dim_output,
+            lite=lite,
         )
         
     model = model_config.init_model()

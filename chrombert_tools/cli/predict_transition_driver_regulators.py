@@ -231,6 +231,13 @@ def run(args):
     help="Training mode: 'fast' downsamples to 20k regions for quicker training; 'full' uses all regions.",
 )
 @click.option(
+    "--lite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Use lite model. Only support human genome and 1kb resolution.",
+)
+@click.option(
     "--flank-window",
     "flank_window",
     default=4,
@@ -299,6 +306,7 @@ def predict_transition_driver_regulators(
     genome,
     resolution,
     mode,
+    lite,
     flank_window,
     tss_flank,
     include_tss_background,
@@ -328,6 +336,7 @@ def predict_transition_driver_regulators(
         genome=genome,
         resolution=resolution,
         mode=mode,
+        lite=lite,
         flank_window=flank_window,
         tss_flank=tss_flank,
         include_tss_background=include_tss_background,

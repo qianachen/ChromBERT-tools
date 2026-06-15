@@ -27,6 +27,7 @@ class ChromBERTConfig(PretrainedConfig):
         flash_causal: bool = False,
         flash_device: str | None = None,
         mask_matrix: str | None = "hg38_6k_mask_matrix.tsv",
+        lite: bool = False,
         **kwargs,
     ):
         super().__init__(**kwargs)
@@ -57,14 +58,21 @@ class ChromBERTConfig(PretrainedConfig):
         self.attention_probs_dropout_prob = dropout
         self.intermediate_size = feed_forward_dim
         self.pad_token_id = token_id_pad
+        self.lite = lite
+        if self.lite:
+            self.num_layers = 4
+            self.num_hidden_layers = 4
+            
 
         if self.genome not in ["hg38", "mm10"]:
             raise ValueError(f"genome should be hg38 or mm10, but got {self.genome}")
 
     @property
     def n_datasets(self) -> int:
-        if self.genome == "hg38":
+        if self.genome == "hg38" and not self.lite:
             return 6392
+        if self.genome == "hg38" and self.lite:
+            return 3884
         if self.genome == "mm10":
             return 5616
         raise ValueError(f"Unsupported genome: {self.genome}")

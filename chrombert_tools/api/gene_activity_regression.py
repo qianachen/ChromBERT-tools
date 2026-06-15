@@ -20,6 +20,7 @@ def gene_activity_regression(
     genome: str = "hg38",
     resolution: str = "1kb",
     mode: str = "fast",
+    lite: bool = False,
     ft_ckpt: Optional[str] = None,
     chrombert_cache_dir: Optional[str] = None,
     batch_size: int = 4,
@@ -55,6 +56,7 @@ def gene_activity_regression(
         chrombert_cache_dir=chrombert_cache_dir,
         batch_size=batch_size,
         flank_window=flank_window,
+        lite=lite,
     )
     if chrombert_region_file is not None:
         args.chrombert_region_file = chrombert_region_file

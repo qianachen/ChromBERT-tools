@@ -103,6 +103,7 @@ def build_model_dataset_config(
     ignore_index = None
     gep = getattr(args, "gep", gep)
     flank_window = getattr(args, "flank_window", flank_window)
+    lite = getattr(args, "lite", False)
     if not gep:
         data_config = DatasetConfig(
             kind="GeneralDataset",
@@ -122,10 +123,11 @@ def build_model_dataset_config(
             genome=args.genome,
             task="general",
             dropout=0,
-            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution, lite),
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
             finetune_ckpt=args.ft_ckpt,
+            lite=lite,
             ignore=ignore,
             ignore_index=ignore_index,
         )
@@ -149,11 +151,12 @@ def build_model_dataset_config(
             genome=args.genome,
             task="gep",
             dropout=0,
-            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution, lite),
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
             finetune_ckpt=args.ft_ckpt,
             gep_flank_window=flank_window,
+            lite=lite,
             ignore=ignore,
             ignore_index=ignore_index,
         )

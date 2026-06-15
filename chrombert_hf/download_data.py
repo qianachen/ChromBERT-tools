@@ -51,6 +51,33 @@ class HuggingFaceDownloader:
         if result.returncode != 0:
             print(f"Error downloading {ifile}")
 
+class HuggingFaceDownloaderLite:
+    @staticmethod
+    def download(ifile, odir, hf_endpoint="https://huggingface.co"):
+        # Try to find 'hf' command first, then fall back to 'huggingface-cli'
+        huggingface_cli_path = shutil.which("hf")
+        if huggingface_cli_path is None:
+            huggingface_cli_path = shutil.which("huggingface-cli")
+        
+        if huggingface_cli_path is None:
+            raise FileNotFoundError("Neither 'hf' nor 'huggingface-cli' command was found in the system PATH.")
+        
+        cmd = [
+            huggingface_cli_path,
+            "download",
+            "--repo-type",
+            "dataset",
+            "--local-dir",
+            odir,
+            "TongjiZhanglab/chrombert-lite",
+            ifile
+        ]
+        # cmd = f"hf download --repo-type dataset --local-dir {odir} TongjiZhanglab/chrombert {ifile}"
+        # cmd = f"huggingface-cli download --repo-type dataset --local-dir {odir} TongjiZhanglab/chrombert {ifile}"
+        result = subprocess.run(cmd, env={"HF_ENDPOINT": hf_endpoint})
+        if result.returncode != 0:
+            print(f"Error downloading {ifile}")
+
 def build_chrombert_paths_dict(basedir, genome, resolution):
     basedir = os.path.abspath(basedir)
     n_d = "6k" if genome == "hg38" else "5k"
@@ -95,6 +122,42 @@ def build_chrombert_paths_dict(basedir, genome, resolution):
         k: v if os.path.exists(v) else None
         for k, v in paths.items()
     }
+
+def build_chrombert_lite_paths_dict(basedir):
+    paths = {
+        "chrombert_region_file": os.path.join(
+            basedir, "config", f"hg38_6k_1kb_region.bed"
+        ),
+        "chrombert_regulator_file": os.path.join(
+            basedir, "config", f"hg38_6k_regulators_list.txt"
+        ),
+        "chrombert_factor_file": os.path.join(
+            basedir, "config", f"hg38_6k_factors_list.txt"
+        ),
+        "hdf5_file": os.path.join(
+            basedir, "lite", f"hg38_3k_1kb_filtered_mask_matrix.hdf5"
+        ),
+        "pretrain_ckpt": os.path.join(
+            basedir, "lite", f"hg38_3k_1kb_pretrain.ckpt"
+        ),
+        "mtx_mask": os.path.join(
+            basedir, "lite", f"hg38_3k_1kb_filtered_mask_matrix.tsv"
+        ),
+        "gene_meta_tsv": os.path.join(
+            basedir, "anno", f"hg38_1kb_gene_meta.tsv"
+        ),
+        "base_ca_signal": os.path.join(
+            basedir, "lite", f"hg38_1kb_accessibility_signal_mean_3k.npy"
+        ),
+        "meta_file": os.path.join(
+            basedir, "lite", f"hg38_3k_meta.json"
+        ),
+    }
+    return {
+        k: v if os.path.exists(v) else None
+        for k, v in paths.items()
+    }
+
     
 def download(basedir = "~/.cache/chrombert/data", hf_endpoint="https://huggingface.co", genome="hg38", resolution = '1kb'):
     basedir = os.path.expanduser(basedir)
@@ -259,14 +322,83 @@ def download(basedir = "~/.cache/chrombert/data", hf_endpoint="https://huggingfa
     
     return os.path.abspath(basedir), config
 
+    
+def download_lite(basedir = "~/.cache/chrombert/data", hf_endpoint="https://huggingface.co", genome="hg38", resolution = '1kb'):
+    basedir = os.path.expanduser(basedir)
+    os.makedirs(basedir, exist_ok=True)
+    if hf_endpoint.endswith("/"):
+        hf_endpoint = hf_endpoint[:-1]
+
+    print(f"Downloading files to {basedir}")
+
+    directories = [
+        "lite",
+    ]
+    directories = [os.path.join(basedir, directory) for directory in directories]
+    
+    FileManager.create_directories(directories)
+    
+
+    files_to_download_dicts = {}
+    files_to_download_dicts['hg38_1kb_lite'] = {
+        ("hg38_3k_1kb_filtered_mask_matrix.hdf5.gz", "lite"),
+        ("hg38_3k_1kb_pretrain.ckpt", "lite"),
+        ("hg38_3k_meta.tsv", "lite"),
+        ("hg38_3k_meta.json", "lite"),
+        ("hg38_3k_1kb_filtered_mask_matrix.tsv", "lite"),
+        ("hg38_1kb_accessibility_signal_mean_3k.npy","lite")    
+    }
+    
+    files_to_decompress_dicts = {
+        "hg38_1kb_lite": ["hg38_3k_1kb_filtered_mask_matrix.hdf5.gz"],
+    }
+
+    # files_to_unpack = [
+    #     ("demo.tar.gz", ".")
+    # ]
+
+
+    files_to_download = files_to_download_dicts['hg38_1kb_lite']
+    files_to_decompress = files_to_decompress_dicts["hg38_1kb_lite"]
+
+
+    for ifile, odir in files_to_download:
+        if ifile in files_to_decompress and  os.path.exists(os.path.join(basedir, odir, ifile.replace(".gz", ""))):
+            continue
+        HuggingFaceDownloaderLite.download(ifile, os.path.join(basedir, odir), hf_endpoint)
+    
+    for file in files_to_decompress:
+        if not os.path.exists(os.path.join(basedir, "lite", file.replace(".gz", ""))):
+            FileManager.decompress_file(os.path.join(basedir, "lite", file))
+        
+    # for file, output_dir in files_to_unpack:
+    #     FileManager.unpack_tar(os.path.join(basedir, file), os.path.join(basedir, output_dir))
+
+    paths = build_chrombert_lite_paths_dict(basedir)
+    config_path = os.path.join(basedir, f"data_config_{genome}_{resolution}_lite.json")
+    with open(config_path, "w", encoding="utf-8") as f:
+        config = {
+            "chrombert_cache_dir": os.path.abspath(basedir),
+            "genome": genome,
+            "resolution": resolution,
+            **paths
+        }
+        json.dump(config, f, indent=2)
+    
+    return os.path.abspath(basedir), config
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("--basedir", type=str, default="~/.cache/chrombert/data", help="Base directory to download files")
     parser.add_argument("--hf-endpoint", type=str, default="https://huggingface.co", help="Huggingface endpoint")
     parser.add_argument("--genome", type=str, default="hg38", help="Genome, default: hg38")
     parser.add_argument("--resolution", type=str, default="1kb", help="Resolution, default: 1kb")
+    parser.add_argument("--lite", action="store_true", help="Lite mode, default: False")
     args = parser.parse_args()
     download(args.basedir, args.hf_endpoint, args.genome, args.resolution)
+    if args.lite:
+        assert args.genome == "hg38" and args.resolution == "1kb", "Lite mode is only supported for hg38 1kb"
+        download_lite(args.basedir, args.hf_endpoint, args.genome, args.resolution)
     return None
 
 if __name__ == "__main__":

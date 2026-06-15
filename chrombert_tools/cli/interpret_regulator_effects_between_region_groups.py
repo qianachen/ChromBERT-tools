@@ -97,6 +97,8 @@ def run(args, return_data=True):
 @click.option("--resolution", default="1kb", show_default=True,
               type=click.Choice(["200bp", "1kb", "2kb", "4kb"], case_sensitive=False),
               help="ChromBERT resolution.")
+@click.option("--lite", is_flag=True, default=False, show_default=True,
+              help="Use lite model. Only support human genome and 1kb resolution.")
 @click.option("--odir", default="./output", show_default=True,
               type=click.Path(file_okay=False), help="Output directory.")
 @click.option("--batch-size", "batch_size", default=4, show_default=True, type=int,
@@ -115,7 +117,7 @@ def run(args, return_data=True):
               help="ChromBERT cache directory (contains config/ anno/ checkpoint/ etc).")
 
 
-def interpret_regulator_effects_between_region_groups(region1_file, region2_file, ft_ckpt, ignore_regulator, gep, flank_window, genome, resolution, odir, batch_size,model_config,data_config,
+def interpret_regulator_effects_between_region_groups(region1_file, region2_file, ft_ckpt, ignore_regulator, gep, flank_window, genome, resolution, lite, odir, batch_size,model_config,data_config,
                    chrombert_cache_dir):
     '''
     Identify regulators that differ between two region sets via embedding shift.
@@ -129,6 +131,7 @@ def interpret_regulator_effects_between_region_groups(region1_file, region2_file
         flank_window=flank_window,
         genome=genome,
         resolution=resolution,
+        lite=lite,
         odir=odir,
         batch_size=batch_size,
         chrombert_cache_dir=chrombert_cache_dir,

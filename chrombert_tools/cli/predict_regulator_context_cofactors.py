@@ -237,6 +237,13 @@ def run(args):
     ),
 )
 @click.option(
+    "--lite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Use lite model. Only support human genome and 1kb resolution.",
+)
+@click.option(
     "--odir",
     default="./output",
     show_default=True,
@@ -319,6 +326,7 @@ def predict_regulator_context_cofactors(
     genome,
     resolution,
     ft_ckpt,
+    lite,
     batch_size,
     mode,
     chrombert_cache_dir,
@@ -349,6 +357,7 @@ def predict_regulator_context_cofactors(
         genome=genome,
         resolution=resolution,
         ft_ckpt=ft_ckpt,
+        lite=lite,
         batch_size=batch_size,
         mode=str(mode).lower(),
         chrombert_cache_dir=chrombert_cache_dir,

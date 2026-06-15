@@ -86,13 +86,13 @@ def run_region_general(args, files_dict, odir, return_data=False,model_emb=None)
     Generate region embeddings for general model
     '''
     focus_region = args.region
-
+    lite = getattr(args, "lite", False)
     overlap_bed = check_region_file(focus_region, files_dict, odir)
     overlap_idx = overlap_bed["build_region_index"].to_numpy()
 
     emb_npy_path = files_dict["region_emb_npy"]
 
-    if emb_npy_path is not None and os.path.exists(emb_npy_path) and getattr(args, "ignore_regulator", None) is None:
+    if not lite and emb_npy_path is not None and os.path.exists(emb_npy_path) and getattr(args, "ignore_regulator", None) is None:
         print("Using cached region embeddings...")
         all_emb = np.load(emb_npy_path)
         region_embs = all_emb[overlap_idx]
@@ -211,7 +211,9 @@ def run_gene_general(args, files_dict, odir, return_data=False,model_emb=None):
 
     emb_npy_path = files_dict["region_emb_npy"]
 
-    if emb_npy_path is not None and os.path.exists(emb_npy_path) and getattr(args, "ignore_regulator", None) is None:
+    lite = getattr(args, "lite", False)
+
+    if not lite and emb_npy_path is not None and os.path.exists(emb_npy_path) and getattr(args, "ignore_regulator", None) is None:
         print("Using cached region embeddings for gene pooling...")
         all_emb = np.load(emb_npy_path)
         gene_emb_dict = {}
@@ -344,6 +346,8 @@ def report_gene(args, odir, info, cell_specific=False):
 @click.option("--mode", default="fast", show_default=True,
               type=click.Choice(["fast", "full"], case_sensitive=False),
               help="Used when training cell-specific model.")
+@click.option("--lite", is_flag=True, default=False, show_default=True,
+              help="Use lite model. Only support human genome and 1kb resolution.")
 @click.option("--batch-size", default=4, show_default=True, type=int)
 # @click.option("--ignore-regulator", "ignore_regulator",
 #               type=str,
@@ -377,6 +381,7 @@ def embed_region(
     genome,
     resolution,
     mode,
+    lite,
     batch_size,
     chrombert_cache_dir,
     chrombert_region_file,
@@ -400,6 +405,7 @@ def embed_region(
         genome=genome,
         resolution=resolution,
         mode=mode,
+        lite=lite,
         batch_size=batch_size,
         chrombert_cache_dir=chrombert_cache_dir,
         chrombert_region_file=chrombert_region_file,

@@ -278,6 +278,13 @@ def run(args):
 )
 
 @click.option(
+    "--lite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Use lite model. Only support human genome and 1kb resolution.",
+)
+@click.option(
     "--ft-ckpt",
     "ft_ckpt",
     default=None,
@@ -307,7 +314,7 @@ def interpret_context_dependent_cofactor(
     dual_regulator,
     ignore_regulator,
     threshold,
-    odir, gep, flank_window, genome, resolution, ft_ckpt, batch_size, chrombert_cache_dir
+    odir, gep, flank_window, genome, resolution, lite, ft_ckpt, batch_size, chrombert_cache_dir
 ):
     """
     Interpret context-dependent cofactors for dual-functional regulators.
@@ -324,6 +331,7 @@ def interpret_context_dependent_cofactor(
         flank_window=flank_window,
         genome=genome,
         resolution=resolution,
+        lite=lite,
         ft_ckpt=ft_ckpt,
         batch_size=batch_size,
         chrombert_cache_dir=chrombert_cache_dir,

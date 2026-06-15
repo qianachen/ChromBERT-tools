@@ -188,6 +188,8 @@ def run(args, return_data=False):
 @click.option("--mode", default="fast", show_default=True,
               type=click.Choice(["fast", "full"], case_sensitive=False),
               help="Used when training cell-specific model.")
+@click.option("--lite", is_flag=True, default=False, show_default=True,
+              help="Use lite model. Only support human genome and 1kb resolution.")
 @click.option("--batch-size", default=4, show_default=True, type=int, help="Batch size.")
 @click.option("--num-workers", default=8, show_default=True, type=int, help="Dataloader workers.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
@@ -209,6 +211,7 @@ def embed_regulator(
     genome,
     resolution,
     mode,
+    lite,
     batch_size,
     num_workers,
     chrombert_cache_dir,
@@ -231,6 +234,7 @@ def embed_regulator(
         genome=genome.lower(),
         resolution=resolution,
         mode=mode,
+        lite=lite,
         batch_size=batch_size,
         num_workers=num_workers,
         chrombert_cache_dir=chrombert_cache_dir,

@@ -10,7 +10,7 @@ import torch
 import re
 import random
 import h5py
-from chrombert_hf.download_data import download
+from chrombert_hf.download_data import download, download_lite
 from sklearn.metrics.pairwise import cosine_similarity
 from types import SimpleNamespace
 def _nd_from_genome(genome: str) -> str:
@@ -30,10 +30,12 @@ def _path_if_exists(p):
     return p if os.path.exists(p) else None
 
 
-def get_model_name(genome: str, resolution: str) -> str:
+def get_model_name(genome: str, resolution: str, lite: bool = False) -> str:
     if genome == "hg38":
-        if resolution == "1kb":
+        if resolution == "1kb" and not lite:
             return "TongjiZhanglab/chrombert-human-1kb"
+        elif resolution == "1kb" and lite:
+            return "TongjiZhanglab/chrombert-human-1kb-lite"
         elif resolution == "2kb":
             return "TongjiZhanglab/chrombert-human-2kb"
         elif resolution == "4kb":
@@ -55,7 +57,7 @@ def get_tf_bind_model_name(genome: str, resolution: str) -> str:
     else:
         raise ValueError(f"Genome {genome} not supported.")
 
-def resolve_paths(args = None,genome: str = None, resolution: str = None, chrombert_cache_dir: str = None):
+def resolve_paths(args = None,genome: str = None, resolution: str = None, chrombert_cache_dir: str = None, lite: bool = False):
     """
     Resolve all required ChromBERT files based on:
       - genome: hg38/mm10
@@ -68,7 +70,7 @@ def resolve_paths(args = None,genome: str = None, resolution: str = None, chromb
         else:
             if chrombert_cache_dir is None:
                 chrombert_cache_dir = "~/.cache/chrombert/data"
-            args = SimpleNamespace(genome=genome, resolution=resolution, chrombert_cache_dir=chrombert_cache_dir)
+            args = SimpleNamespace(genome=genome, resolution=resolution, chrombert_cache_dir=chrombert_cache_dir, lite=lite)
     else:
         if genome is not None:
             args.genome = genome
@@ -76,15 +78,23 @@ def resolve_paths(args = None,genome: str = None, resolution: str = None, chromb
             args.resolution = resolution
         if chrombert_cache_dir is not None:
             args.chrombert_cache_dir = chrombert_cache_dir
-
+        if not hasattr(args, "lite"):
+            args.lite = lite
     n_d = _nd_from_genome(args.genome)
     cache_path = os.path.expanduser(args.chrombert_cache_dir)
     if not os.path.exists(cache_path):
         print(f"There is no ChromBERT data in {cache_path}, downloading...")
         download(basedir=cache_path,genome=args.genome,resolution=args.resolution)
+
+    if args.lite and not os.path.exists(os.path.join(cache_path, "lite")):
+        print(f"There is no ChromBERT lite data in {cache_path}, downloading...")
+        download_lite(basedir=cache_path,genome=args.genome,resolution=args.resolution)
+    suffix = "_lite" if args.lite else ""
+    config_path = os.path.join(cache_path, f"data_config_{args.genome}_{args.resolution}{suffix}.json")
+
     
-    if os.path.exists(os.path.join(cache_path, f"data_config_{args.genome}_{args.resolution}.json")):
-        data_dict = json.load(open(os.path.join(cache_path, f"data_config_{args.genome}_{args.resolution}.json")))
+    if os.path.exists(config_path):
+        data_dict = json.load(open(config_path))
     else:
         # region bed
         chrombert_region_file = os.path.join(cache_path, f"config/{args.genome}_{n_d}_{args.resolution}_region.bed")
@@ -160,6 +170,18 @@ def resolve_paths(args = None,genome: str = None, resolution: str = None, chromb
             "meta_file": meta_file,
             "prompt_ckpt": prompt_ckpt,
         }
+    if args.lite:
+        assert args.genome == "hg38", "Lite model only supports hg38 genome."
+        assert args.resolution == "1kb", "Lite model only supports 1kb resolution."
+        data_dict["hdf5_file"] = os.path.join(cache_path, "lite", "hg38_3k_1kb_filtered_mask_matrix.hdf5")
+        data_dict["pretrain_ckpt"] = os.path.join(cache_path, "lite", "hg38_3k_1kb_pretrain.ckpt")
+        data_dict["mtx_mask"] = os.path.join(cache_path, "lite", "hg38_3k_1kb_filtered_mask_matrix.tsv")
+        data_dict["base_ca_signal"] = os.path.join(cache_path, "lite", "hg38_1kb_accessibility_signal_mean_3k.npy")
+        data_dict["meta_file"] = os.path.join(cache_path, "lite", "hg38_3k_meta.json")
+        data_dict["region_emb_npy"] = None
+        data_dict["prompt_ckpt"] = None
+
+
     return data_dict
     
     

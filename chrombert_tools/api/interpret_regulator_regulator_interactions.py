@@ -20,6 +20,7 @@ def interpret_regulator_regulator_interactions(
     odir: str = "./output",
     genome: str = "hg38",
     resolution: str = "1kb",
+    lite: bool = False,
     regulator: Optional[Union[str, List[str]]] = None,
     batch_size: int = 64,
     num_workers: int = 8,
@@ -109,6 +110,7 @@ def interpret_regulator_regulator_interactions(
         flank_window=flank_window,
         model_config=model_config,
         data_config=data_config,
+        lite=lite,
     )
     if chrombert_region_file is not None:
         args.chrombert_region_file = chrombert_region_file

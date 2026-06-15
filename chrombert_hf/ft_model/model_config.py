@@ -33,6 +33,8 @@ class ChromBERTFTConfig:
     # or as fallback when primary load (e.g. Hub) fails (see BasicModel.init_pretrain_model).
     pretrain_ckpt: Optional[str] = field(default=None, metadata={"help": "pretrained model path"})
 
+    lite: bool = field(default=False, metadata={"help": "whether to use lite model"})
+
     mtx_mask: Optional[str] = field(default=None, metadata={"help": "mask matrix path; optional if bundled in HF model"})
     dropout: float = field(default=0.1, metadata={"help": "dropout rate"})
     finetune_ckpt: Optional[str] = field(default=None, metadata={"help": "loading finetune checkpoint"})

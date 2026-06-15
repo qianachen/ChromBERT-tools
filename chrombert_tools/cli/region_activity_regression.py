@@ -323,6 +323,7 @@ def load_train_model_acc(args, files_dict, odir):
         ``train_try_odir`` is ``.../train/try_XX_seed_YY`` (where
         ``eval_performance.json`` lives), or ``None`` if loading from ``ft_ckpt``.
     """
+    lite = getattr(args, "lite", False)
     if args.ft_ckpt is not None:
         print(f"Using fine-tuned checkpoint: {args.ft_ckpt}")
         data_config = DatasetConfig(
@@ -337,10 +338,11 @@ def load_train_model_acc(args, files_dict, odir):
             genome=args.genome,
             task="general",
             dropout=0,
-            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution, lite),
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
             finetune_ckpt=args.ft_ckpt,
+            lite=lite,
         )
         model_tuned = model_config.init_model().cuda()
         print("Finished stage 2 (loaded checkpoint)")
@@ -444,6 +446,7 @@ def _is_predict_only(args):
 
 def _load_model_for_predict_acc(args, files_dict):
     """Load fine-tuned general/regression checkpoint for predict-only."""
+    lite = getattr(args, "lite", False)
     data_config = DatasetConfig(
         kind="GeneralDataset",
         supervised_file=None,
@@ -457,10 +460,11 @@ def _load_model_for_predict_acc(args, files_dict):
         task="general",
         dropout=0,
         dim_output=1,
-        pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+        pretrained_model_name_or_path=get_model_name(args.genome, args.resolution, lite),
         pretrain_ckpt=files_dict["pretrain_ckpt"],
         mtx_mask=files_dict["mtx_mask"],
         finetune_ckpt=args.ft_ckpt,
+        lite=lite,
     )
     model_tuned = model_config.init_model().cuda()
     return model_tuned, data_config
@@ -656,6 +660,13 @@ def run(args):
     help="'fast' downsamples to 20k regions; 'full' uses all.",
 )
 @click.option(
+    "--lite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Use lite model. Only support human genome and 1kb resolution.",
+)
+@click.option(
     "--ft-ckpt",
     "ft_ckpt",
     default=None,
@@ -745,6 +756,7 @@ def region_activity_regression(
     resolution,
     mode,
     ft_ckpt,
+    lite,
     tss_flank,
     include_tss_background,
     subtract_reference_baseline,
@@ -773,6 +785,7 @@ def region_activity_regression(
         resolution=resolution,
         mode=str(mode).lower(),
         ft_ckpt=ft_ckpt,
+        lite=lite,
         tss_flank=tss_flank,
         include_tss_background=include_tss_background,
         subtract_background_signal=subtract_reference_baseline,

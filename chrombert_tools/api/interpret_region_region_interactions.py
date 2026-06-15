@@ -20,6 +20,7 @@ def interpret_region_region_interactions(
     odir: str = "./output",
     genome: str = "hg38",
     resolution: str = "1kb",
+    lite: bool = False,
     chrombert_cache_dir: Optional[str] = None,
     chrombert_region_file: Optional[str] = None,
     chrombert_region_emb_file: Optional[str] = None,
@@ -127,6 +128,7 @@ def interpret_region_region_interactions(
         distance_min=distance_min,
         distance_max=distance_max,
         distance_window=distance_window,
+        lite=lite,
         model_config=model_config,
         data_config=data_config,
     )

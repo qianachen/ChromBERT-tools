@@ -188,6 +188,7 @@ def make_exp_dataset(args, files_dict, data_odir):
 
 
 def load_train_model_gep(args, files_dict, odir):
+    lite = getattr(args, "lite", False)
     if args.ft_ckpt is not None:
         print(f"Use fine-tuned ChromBERT checkpoint file: {args.ft_ckpt}")
         data_config = DatasetConfig(
@@ -203,11 +204,12 @@ def load_train_model_gep(args, files_dict, odir):
             genome=args.genome,
             task="gep",
             dropout=0,
-            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+            pretrained_model_name_or_path=get_model_name(args.genome, args.resolution, lite),
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             finetune_ckpt=args.ft_ckpt,
             mtx_mask=files_dict["mtx_mask"],
             gep_flank_window=args.flank_window,
+            lite=lite,
         )
         model_tuned = model_config.init_model().cuda()
         print("Finished stage 2 (loaded checkpoint)")
@@ -311,6 +313,7 @@ def _is_predict_only(args):
 
 def _load_model_for_predict_gep(args, files_dict):
     """Load fine-tuned GEP model for predict-only (no TPM dataset)."""
+    lite = getattr(args, "lite", False)
     fw = int(getattr(args, "flank_window", 4))
     data_config = DatasetConfig(
         kind="MultiFlankwindowDataset",
@@ -325,11 +328,12 @@ def _load_model_for_predict_gep(args, files_dict):
         genome=args.genome,
         task="gep",
         dropout=0,
-        pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+        pretrained_model_name_or_path=get_model_name(args.genome, args.resolution, lite),
         pretrain_ckpt=files_dict["pretrain_ckpt"],
         finetune_ckpt=args.ft_ckpt,
         mtx_mask=files_dict["mtx_mask"],
         gep_flank_window=fw,
+        lite=lite,
     )
     model_tuned = model_config.init_model().cuda()
     return model_tuned, data_config
@@ -489,6 +493,13 @@ def run(args):
     help="ChromBERT resolution.",
 )
 @click.option(
+    "--lite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Use lite model. Only support human genome and 1kb resolution.",
+)
+@click.option(
     "--ft-ckpt",
     "ft_ckpt",
     default=None,
@@ -534,6 +545,7 @@ def gene_activity_regression(
     odir,
     genome,
     resolution,
+    lite,
     ft_ckpt,
     chrombert_cache_dir,
     batch_size,
@@ -556,6 +568,7 @@ def gene_activity_regression(
         genome=genome.lower(),
         resolution=resolution,
         mode=str(mode).lower(),
+        lite=lite,
         ft_ckpt=ft_ckpt,
         chrombert_cache_dir=chrombert_cache_dir,
         batch_size=batch_size,

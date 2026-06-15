@@ -181,6 +181,8 @@ def run(args, return_data=False):
               type=click.Choice(["hg38", "mm10"], case_sensitive=False), help="Genome.")
 @click.option("--resolution", default="1kb", show_default=True,
               type=click.Choice(["1kb", "200bp", "2kb", "4kb"], case_sensitive=False), help="Resolution.")
+@click.option("--lite", is_flag=True, default=False, show_default=True,
+              help="Use lite model. Only support human genome and 1kb resolution.")
 @click.option("--chrombert-cache-dir", "chrombert_cache_dir",
               default="~/.cache/chrombert/data",
               show_default=True, type=click.Path(file_okay=False),
@@ -216,6 +218,7 @@ def interpret_regulator_regulator_interactions(
     flank_window,
     model_config,
     data_config,
+    lite,
 ):
     '''
     Interpret regulator-regulator interactions
@@ -226,6 +229,7 @@ def interpret_regulator_regulator_interactions(
         odir=odir,
         genome=genome.lower(),
         resolution=resolution,
+        lite=lite,
         chrombert_cache_dir=chrombert_cache_dir,
         batch_size=batch_size,
         quantile=quantile,

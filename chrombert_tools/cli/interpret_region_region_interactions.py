@@ -82,11 +82,12 @@ def _filter_gene_tss(
 
 
 def get_union_embeddings(args, files_dict, sup_file, union_idx):
+    lite = getattr(args, "lite", False)
     odir = args.odir
     oname = getattr(args, "oname", "region_emb")
     chrombert_region_emb_file = files_dict["region_emb_npy"]
     if args.ft_ckpt is None:
-        if chrombert_region_emb_file is not None and os.path.exists(chrombert_region_emb_file):
+        if chrombert_region_emb_file is not None and os.path.exists(chrombert_region_emb_file) and not lite:
             region_embs, _ = embed_region_processed(
                 emb_npy_file=chrombert_region_emb_file,
                 overlap_idx=union_idx,
@@ -305,6 +306,13 @@ def run(args, return_data=False):
     type=click.Choice(["1kb", "200bp", "2kb", "4kb"], case_sensitive=False),
 )
 @click.option(
+    "--lite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Use lite model. Only support human genome and 1kb resolution.",
+)
+@click.option(
     "--distance-min",
     "distance_min",
     default=0,
@@ -386,6 +394,7 @@ def interpret_region_region_interactions(
     odir,
     genome,
     resolution,
+    lite,
     chrombert_cache_dir,
     chrombert_region_file,
     chrombert_region_emb_file,
@@ -409,6 +418,7 @@ def interpret_region_region_interactions(
         odir=odir,
         genome=genome.lower(),
         resolution=resolution,
+        lite=lite,
         chrombert_cache_dir=chrombert_cache_dir,
         chrombert_region_file=chrombert_region_file,
         chrombert_region_emb_file=chrombert_region_emb_file,

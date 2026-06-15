@@ -56,16 +56,18 @@ def build_model_emb(args,files_dict):
     '''
     Build pretrained model and embedding manager
     '''
+    lite = getattr(args, "lite", False)
     if files_dict["pretrain_ckpt"] is not None and os.path.exists(files_dict["pretrain_ckpt"]) and os.path.exists(files_dict["mtx_mask"]):
         model_config = ChromBERTConfig(
                 ckpt=files_dict["pretrain_ckpt"],
                 genome=args.genome,
                 mask_matrix=files_dict["mtx_mask"],
                 dropout=0,
+                lite=lite,
             )
         model_emb = model_config.init_model().get_embedding_manager().cuda().bfloat16()
     else:
-        model_emb = AutoModel.from_pretrained(get_model_name(args.genome, args.resolution), trust_remote_code=True).get_embedding_manager().cuda().bfloat16()
+        model_emb = AutoModel.from_pretrained(get_model_name(args.genome, args.resolution, lite), trust_remote_code=True).get_embedding_manager().cuda().bfloat16()
     # model_emb = AutoModel.from_pretrained(get_model_name(args.genome, args.resolution), trust_remote_code=True).get_embedding_manager().cuda().bfloat16()
     
     return model_emb
@@ -75,15 +77,17 @@ def build_cell_model_emb(args, files_dict,odir):
     '''
     Build cell-specific model and embedding manager
     '''
+    lite = getattr(args, "lite", False)
     # 1) load ft ckpt if provided
     if args.ft_ckpt is not None:
         print(f"Using provided fine-tuned checkpoint: {args.ft_ckpt}")
         model_config = ChromBERTFTConfig(
-            pretrained_model_name_or_path = get_model_name(args.genome, args.resolution),
+            pretrained_model_name_or_path = get_model_name(args.genome, args.resolution, lite),
             finetune_ckpt=args.ft_ckpt,
             pretrain_ckpt=files_dict["pretrain_ckpt"],
             mtx_mask=files_dict["mtx_mask"],
             dropout=0,
+            lite=lite,
         )
         model_emb = model_config.init_model().get_embedding_manager().cuda().bfloat16()
         return model_emb

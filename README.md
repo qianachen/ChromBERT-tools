@@ -4,6 +4,9 @@
 
 > **ChromBERT-tools** is a lightweight toolkit built upon ChromBERT that operationalizes context-specific regulatory representations for user data through modular command-line interfaces and Python APIs organized into three functional layers: representation generation, predictive modeling, and regulatory interpretation. 
 
+> For users who prioritize computational efficiency, ChromBERT-tools also supports **ChromBERT-Lite** as an optional lightweight model. See [ChromBERT-Lite model option](#4-chrombert-lite-model-option) for details.
+
+
 A short video tutorial is available to introduce ChromBERT-tools, including installation and a representative example workflow.
 
 **Watch on:** [YouTube](https://youtu.be/u7BJcd-o-o8?si=db5svD167kkfPfcP) | [Bilibili](https://www.bilibili.com/video/BV1QdRQBME6d/?share_source=copy_web&vd_source=ef1be9aca5c89f390ed380e18e1c7dc8)
@@ -128,6 +131,20 @@ We provide an integrated workflow that combines the above commands to infer cell
 | [predict_transition_driver_regulators](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_transition_driver_regulators.html) | Identify driver regulators in cell-state transitions | [CLI](examples/cli/predict_transition_driver_regulators.ipynb)|
 | [predict_regulator_context_cofactors](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_regulator_context_cofactors.html) | Identify context-specific cofactors | [CLI](examples/cli/predict_regulator_context_cofactors.ipynb)|
 | [predict_tf_binding_regions](https://chrombert-tools.readthedocs.io/en/latest/commands/predict_tf_binding_regions.html) | Predict TF-binding regions | [CLI](examples/cli/predict_tf_binding_regions.ipynb), [API](examples/api/predict_tf_binding_regions.ipynb) |
+
+
+
+## 4. ChromBERT-Lite model option
+
+In our tests, ChromBERT-Lite reduced runtime by at least half across representative ChromBERT-tools tasks compared with the original ChromBERT model.
+
+ChromBERT-Lite generally shows slightly lower performance, with noticeable decreases in a small number of tasks. Therefore, **ChromBERT-Lite is not intended to replace the original ChromBERT model, which remains the recommended default for accuracy-oriented analyses**. Instead, it is provided as an optional lightweight alternative for rapid exploration, large-scale screening, or resource-limited computing environments.
+
+To use ChromBERT-Lite, you can specify the `--lite` flag when running ChromBERT-tools commands.
+```bash
+download-data --genome hg38 --resolution 1kb --lite # Download ChromBERT-Lite resources.
+chrombert-tools <command> --genome hg38 --resolution 1kb --lite # Run ChromBERT-tools commands with ChromBERT-Lite.
+```
 
 ## Contact us
 If you have any questions or suggestions, please feel free to contact us at [2211083@tongji.edu.cn](mailto:2211083@tongji.edu.cn).

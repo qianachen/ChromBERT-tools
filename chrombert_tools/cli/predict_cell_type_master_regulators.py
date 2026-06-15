@@ -135,6 +135,13 @@ def run(args):
     help="Resolution of the ChromBERT representation.",
 )
 @click.option(
+    "--lite",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help="Use lite model. Only support human genome and 1kb resolution.",
+)
+@click.option(
     "--odir",
     default="./output",
     show_default=True,
@@ -193,6 +200,7 @@ def predict_cell_type_master_regulators(
     cell_type_bw,
     cell_type_peak,
     ft_ckpt,
+    lite,
     odir,
     mode,
     batch_size,
@@ -223,6 +231,7 @@ def predict_cell_type_master_regulators(
         ft_ckpt=ft_ckpt,
         genome=genome,
         resolution=resolution,
+        lite=lite,
         odir=odir,
         mode=mode,
         batch_size=batch_size,

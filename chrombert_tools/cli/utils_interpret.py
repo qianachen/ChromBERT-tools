@@ -68,6 +68,7 @@ def build_interpret_config(
         ignore_index = None
         gep = getattr(args, "gep", gep)
         flank_window = getattr(args, "flank_window", flank_window)
+        lite = getattr(args, "lite", False)
         if not gep:
             data_config = DatasetConfig(
                 kind="GeneralDataset",
@@ -87,12 +88,13 @@ def build_interpret_config(
                 genome=args.genome,
                 task="general",
                 dropout=0,
-                pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+                pretrained_model_name_or_path=get_model_name(args.genome, args.resolution, lite),
                 pretrain_ckpt=files_dict["pretrain_ckpt"],
                 mtx_mask=files_dict["mtx_mask"],
                 finetune_ckpt=args.ft_ckpt,
                 ignore=ignore,
                 ignore_index=ignore_index,
+                lite=lite,
             )
         else:
             data_config = DatasetConfig(
@@ -114,13 +116,14 @@ def build_interpret_config(
                 genome=args.genome,
                 task="gep",
                 dropout=0,
-                pretrained_model_name_or_path=get_model_name(args.genome, args.resolution),
+                pretrained_model_name_or_path=get_model_name(args.genome, args.resolution, lite),
                 pretrain_ckpt=files_dict["pretrain_ckpt"],
                 mtx_mask=files_dict["mtx_mask"],
                 finetune_ckpt=args.ft_ckpt,
                 gep_flank_window=flank_window,
                 ignore=ignore,
                 ignore_index=ignore_index,
+                lite=lite,
             )
 
     return data_config, model_config
@@ -247,7 +250,8 @@ def load_union_region_embeddings(
     model_input.to_csv(sup_file, sep="\t", index=False)
     union_idx = model_input["build_region_index"].to_numpy(dtype=np.int64)
     emb_path = files_dict["region_emb_npy"]
-    if os.path.exists(emb_path):
+    lite = getattr(args, "lite", False)
+    if not lite and os.path.exists(emb_path):
         all_emb = np.load(emb_path)
         region_embs = all_emb[union_idx]
     else:
